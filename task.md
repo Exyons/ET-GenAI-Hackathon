@@ -13,8 +13,8 @@
 - [x] Create `Dockerfile` for Next.js Frontend (using `bun`).
 
 ## Phase 3: Backend Setup (Python / uv)
-- [ ] Initialize backend project with `uv init`.
-- [ ] Install dependencies (FastAPI, LangGraph, ChromaDB, Whisper).
+- [x] Initialize backend project with `uv init`.
+- [x] Install dependencies (FastAPI, LangGraph, ChromaDB, Whisper).
 - [ ] Generate mock agricultural compliance data (Markdown/PDFs).
 - [ ] Setup Vector DB (ChromaDB) and ingestion script.
 
@@ -26,7 +26,7 @@
 - [ ] Create API endpoints for Web App and WhatsApp Webhook.
 
 ## Phase 5: Frontend Setup (Next.js / bun)
-- [ ] Initialize frontend with `bun create next-app`.
+- [x] Initialize frontend with `bun create next-app`.
 - [ ] Build UI: Language selector, Chat interface, Microphone (STT) integration, Image upload.
 - [ ] Integrate TTS playback for model responses.
 
