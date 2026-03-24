@@ -5,7 +5,8 @@ A domain-specialized AI agent for Indian agriculture designed to operate within 
 
 ## 2. Tech Stack & Infrastructure
 *   **AI Provider:** Ollama Cloud Server (Remote LLM/VLM execution to save VPS resources).
-*   **Models:** `llama3.1` (Reasoning/Translation), `llama3.2-vision` (Image Analysis).
+*   **Environment Configuration:** We use `.env` files to seamlessly configure and swap backend settings (e.g., `OLLAMA_MODEL=llama3.1`, `OLLAMA_VISION_MODEL=llama3.2-vision`, and future `WHISPER_TTS_MODEL`).
+*   **Models:** Managed via `.env` (Reasoning/Translation, Image Analysis).
 *   **Backend:** Python (FastAPI, LangGraph, ChromaDB) managed via `uv`.
 *   **Frontend:** Next.js (App Router), Tailwind CSS, TypeScript managed via `bun`.
 *   **Deployment (VPS):** Docker Compose, Caddy (Reverse Proxy, HTTPS, Rate Limiting, API Auth) on a 1C/4GB RAM Linux VPS.

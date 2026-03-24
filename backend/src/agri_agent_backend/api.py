@@ -2,9 +2,15 @@ from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional
+import os
+from dotenv import load_dotenv
 from .agent import agent_app
 
+load_dotenv()
+
 app = FastAPI(title="Agricultural Advisory AI Agent API")
+
+OLLAMA_VISION_MODEL = os.environ.get("OLLAMA_VISION_MODEL", "llama3.2-vision")
 
 # Setup CORS for frontend
 app.add_middleware(

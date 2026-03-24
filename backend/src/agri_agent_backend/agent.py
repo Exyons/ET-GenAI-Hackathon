@@ -1,11 +1,22 @@
 from typing import TypedDict, Optional, List, Dict, Any
 from langgraph.graph import StateGraph, START, END
-import ollama
+from ollama import Client
 import chromadb
 import chromadb.utils.embedding_functions as embedding_functions
 import os
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 DB_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "chroma_db")
+
+# Environment configurations
+OLLAMA_BASE_URL = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
+OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "llama3.1")
+
+# Initialize Ollama client pointing to the specific host
+ollama_client = Client(host=OLLAMA_BASE_URL)
 
 
 class AdvisoryState(TypedDict):
@@ -32,10 +43,10 @@ except Exception:
     collection = None
 
 
-def get_llm_response(prompt: str, model="llama3.1") -> str:
+def get_llm_response(prompt: str, model=OLLAMA_MODEL) -> str:
     """Helper to query Ollama locally or remotely."""
     try:
-        response = ollama.chat(
+        response = ollama_client.chat(
             model=model, messages=[{"role": "user", "content": prompt}]
         )
         return response["message"]["content"].strip()
