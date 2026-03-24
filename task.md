@@ -16,7 +16,7 @@
 - [x] Initialize backend project with `uv init`.
 - [x] Install dependencies (FastAPI, LangGraph, ChromaDB, Whisper).
 - [x] Generate mock agricultural compliance data (Markdown/PDFs).
-- [ ] Setup Vector DB (ChromaDB) and ingestion script.
+- [x] Setup Vector DB (ChromaDB) and ingestion script.
 
 ## Phase 4: Agent Core (LangGraph)
 - [ ] Build the VLM perception node (Image to Symptoms).
