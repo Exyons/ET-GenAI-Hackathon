@@ -2,18 +2,31 @@
 
 import { useState, useRef, useEffect } from "react";
 
+const loadingPhrases: Record<string, string[]> = {
+  "en-IN": ["Analyzing soil data...", "Consulting KVK guidelines...", "Checking weather patterns...", "Sowing seeds of thought..."],
+  "hi-IN": ["मिट्टी का विश्लेषण...", "KVK दिशा-निर्देश देख रहे हैं...", "मौसम की जांच...", "विचारों के बीज बो रहे हैं..."],
+  "mr-IN": ["मातीचे विश्लेषण...", "KVK मार्गदर्शक तत्त्वे...", "हवामान तपासत आहे...", "विचारांचे बीज पेरत आहे..."],
+  "te-IN": ["మట్టి విశ్లేషణ...", "KVK మార్గదర్శకాలు...", "వాతావరణం తనిఖీ...", "ఆలోచనల విత్తనాలు నాటుతున్నాము..."]
+};
+
 export default function Home() {
   const [query, setQuery] = useState("");
   const [language, setLanguage] = useState("hi-IN"); // Web Speech API format
   const [messages, setMessages] = useState<{ role: string; content: string }[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadingText, setLoadingText] = useState("");
   const [isListening, setIsListening] = useState(false);
   const [imageFile, setImageFile] = useState<File | null>(null);
+  
+  // TTS State
+  const [playingIndex, setPlayingIndex] = useState<number | null>(null);
+  const [isPaused, setIsPaused] = useState(false);
+  
   const recognitionRef = useRef<any>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const loadingIntervalRef = useRef<any>(null);
 
   useEffect(() => {
-    // Initialize Speech Recognition
     if (typeof window !== "undefined" && ("webkitSpeechRecognition" in window || "SpeechRecognition" in window)) {
       const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
       recognitionRef.current = new SpeechRecognition();
@@ -52,15 +65,34 @@ export default function Home() {
     }
   };
 
-  const speak = (text: string, lang: string) => {
-    if ("speechSynthesis" in window) {
-      // Cancel any ongoing speech
+  const toggleSpeech = (text: string, lang: string, index: number) => {
+    if (!("speechSynthesis" in window)) return;
+    
+    // If clicking the same message
+    if (playingIndex === index) {
+      if (isPaused) {
+        window.speechSynthesis.resume();
+        setIsPaused(false);
+      } else {
+        window.speechSynthesis.pause();
+        setIsPaused(true);
+      }
+    } else {
+      // Clean <think> tags out of spoken text
+      const cleanText = text.replace(/<think>[\s\S]*?(?:<\/think>|$)/gi, '').trim();
+      
       window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(text);
+      const utterance = new SpeechSynthesisUtterance(cleanText);
       utterance.lang = lang;
-      // You can adjust rate and pitch here if needed
-      utterance.rate = 0.9; 
+      utterance.rate = 0.9;
+      
+      utterance.onend = () => { setPlayingIndex(null); setIsPaused(false); };
+      utterance.onpause = () => setIsPaused(true);
+      utterance.onresume = () => setIsPaused(false);
+      
       window.speechSynthesis.speak(utterance);
+      setPlayingIndex(index);
+      setIsPaused(false);
     }
   };
 
@@ -75,53 +107,127 @@ export default function Home() {
     if (!query.trim() && !imageFile) return;
 
     const currentQuery = query || "Please analyze this image.";
-    const userMessage = imageFile ? `[Attached: ${imageFile.name}] ${currentQuery}` : currentQuery;
+    const userMessage = imageFile ? `[Attached: ${imageFile.name}]\n${currentQuery}` : currentQuery;
     
-    setMessages((prev) => [...prev, { role: "user", content: userMessage }]);
+    setMessages((prev) => [...prev, { role: "user", content: userMessage }, { role: "agent", content: "" }]);
     setQuery("");
     setLoading(true);
+    
+    // Start farming loading phrases
+    let phraseIdx = 0;
+    const phrases = loadingPhrases[language] || loadingPhrases["en-IN"];
+    setLoadingText(phrases[0]);
+    loadingIntervalRef.current = setInterval(() => {
+      phraseIdx = (phraseIdx + 1) % phrases.length;
+      setLoadingText(phrases[phraseIdx]);
+    }, 2000);
 
     try {
-      // Convert browser locale format to simple lang code for backend (hi-IN -> hi)
       const backendLang = language.split("-")[0];
-      
       let res;
+      
       if (imageFile) {
         const formData = new FormData();
         formData.append("file", imageFile);
         formData.append("language", backendLang);
         formData.append("query", currentQuery);
         
-        res = await fetch("http://localhost:8000/api/upload_image", {
+        res = await fetch("http://localhost:8000/api/upload_image_stream", {
           method: "POST",
           body: formData,
         });
       } else {
-        res = await fetch("http://localhost:8000/api/ask", {
+        res = await fetch("http://localhost:8000/api/ask_stream", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ query: currentQuery, language: backendLang }),
         });
       }
+
+      if (!res.body) throw new Error("No response body");
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let fullText = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        
+        const chunk = decoder.decode(value, { stream: true });
+        const lines = chunk.split('\n');
+        
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const dataStr = line.slice(6).trim();
+            if (!dataStr) continue;
+            
+            try {
+              const data = JSON.parse(dataStr);
+              if (data.type === "chunk") {
+                // Clear loading state on first chunk
+                if (loadingIntervalRef.current) {
+                  clearInterval(loadingIntervalRef.current);
+                  loadingIntervalRef.current = null;
+                  setLoadingText("");
+                }
+                
+                fullText += data.content;
+                setMessages(prev => {
+                  const newMsgs = [...prev];
+                  newMsgs[newMsgs.length - 1].content = fullText;
+                  return newMsgs;
+                });
+              } else if (data.type === "error") {
+                fullText += `\n[Error: ${data.message}]`;
+              }
+            } catch (err) {
+              console.error("Error parsing JSON:", err);
+            }
+          }
+        }
+      }
       
-      const data = await res.json();
-      
-      const responseContent = data.final_answer || "No response received. Please check backend connection.";
-      setMessages((prev) => [...prev, { role: "agent", content: responseContent }]);
-      
-      // Auto-play the TTS for the response
-      speak(responseContent, language);
-      
-      // Clear image
-      setImageFile(null);
-      if (fileInputRef.current) fileInputRef.current.value = "";
+      // Speak final answer
+      if (fullText.trim()) {
+        toggleSpeech(fullText, language, messages.length + 1); // messages.length + 1 is the agent's index
+      }
       
     } catch (error) {
       console.error(error);
-      setMessages((prev) => [...prev, { role: "agent", content: "Error connecting to the backend." }]);
+      setMessages((prev) => {
+        const newMsgs = [...prev];
+        newMsgs[newMsgs.length - 1].content = "Error connecting to the backend.";
+        return newMsgs;
+      });
     } finally {
+      if (loadingIntervalRef.current) clearInterval(loadingIntervalRef.current);
       setLoading(false);
+      setLoadingText("");
+      setImageFile(null);
+      if (fileInputRef.current) fileInputRef.current.value = "";
     }
+  };
+
+  const renderMessageContent = (content: string) => {
+    // Check if there is a think block
+    const thinkMatch = content.match(/<think>([\s\S]*?)(?:<\/think>|$)/);
+    const hasThink = !!thinkMatch;
+    const thinkContent = hasThink ? thinkMatch[1] : "";
+    const mainContent = content.replace(/<think>[\s\S]*?(?:<\/think>|$)/gi, "").trim();
+
+    return (
+      <>
+        {hasThink && (
+          <div className="bg-gray-200 p-3 rounded-md mb-3 text-sm text-gray-700 border border-gray-300">
+            <span className="font-bold flex items-center gap-2 mb-1">
+              🌾 Thinking...
+            </span>
+            <div className="whitespace-pre-wrap opacity-80">{thinkContent}</div>
+          </div>
+        )}
+        <div className="whitespace-pre-wrap">{mainContent}</div>
+      </>
+    );
   };
 
   return (
@@ -149,23 +255,29 @@ export default function Home() {
               <p className="text-gray-400 text-center mt-10">Ask a question about your crops or farming practices...</p>
             ) : (
               messages.map((msg, i) => (
-                <div key={i} className={`mb-4 p-3 rounded-lg ${msg.role === "user" ? "bg-green-100 ml-auto w-5/6 md:w-3/4" : "bg-gray-100 mr-auto w-5/6 md:w-3/4 whitespace-pre-wrap"}`}>
-                  <div className="flex justify-between items-center mb-1">
-                    <span className="font-bold text-sm text-green-800">{msg.role === "user" ? "You" : "Kisan AI"}</span>
-                    {msg.role === "agent" && (
-                      <button 
-                        onClick={() => speak(msg.content, language)}
-                        className="text-xs bg-gray-200 px-2 py-1 rounded hover:bg-gray-300"
-                      >
-                        🔊 Listen
-                      </button>
-                    )}
+                (msg.role === "agent" && !msg.content) ? null : (
+                  <div key={i} className={`mb-4 p-3 rounded-lg ${msg.role === "user" ? "bg-green-100 ml-auto w-5/6 md:w-3/4" : "bg-gray-100 mr-auto w-5/6 md:w-3/4"}`}>
+                    <div className="flex justify-between items-center mb-1">
+                      <span className="font-bold text-sm text-green-800">{msg.role === "user" ? "You" : "Kisan AI"}</span>
+                      {msg.role === "agent" && msg.content && (
+                        <button 
+                          onClick={() => toggleSpeech(msg.content, language, i)}
+                          className={`text-xs px-3 py-1 rounded transition-colors ${playingIndex === i ? (isPaused ? 'bg-yellow-200 hover:bg-yellow-300 text-yellow-800' : 'bg-green-200 hover:bg-green-300 text-green-800') : 'bg-gray-200 hover:bg-gray-300'}`}
+                        >
+                          {playingIndex === i ? (isPaused ? '▶️ Resume' : '⏸️ Pause') : '🔊 Listen'}
+                        </button>
+                      )}
+                    </div>
+                    {msg.role === "agent" ? renderMessageContent(msg.content) : <p className="text-sm md:text-base whitespace-pre-wrap">{msg.content}</p>}
                   </div>
-                  <p className="text-sm md:text-base">{msg.content}</p>
-                </div>
+                )
               ))
             )}
-            {loading && <p className="text-green-600 animate-pulse mt-4 font-bold text-center">Consulting ICAR Guidelines...</p>}
+            {loadingText && (
+              <div className="bg-gray-100 p-3 rounded-lg mr-auto w-5/6 md:w-3/4 text-gray-500 animate-pulse flex items-center gap-2">
+                ⏳ {loadingText}
+              </div>
+            )}
           </div>
 
           {imageFile && (
@@ -179,7 +291,7 @@ export default function Home() {
             <button
               type="button"
               onClick={toggleListening}
-              className={`p-3 rounded-full text-white ${isListening ? 'bg-red-500 animate-pulse' : 'bg-blue-500 hover:bg-blue-600'}`}
+              className={`p-3 rounded-full text-white transition-colors ${isListening ? 'bg-red-500 animate-pulse' : 'bg-blue-500 hover:bg-blue-600'}`}
               title="Click to speak"
             >
               🎤
@@ -195,7 +307,7 @@ export default function Home() {
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="p-3 rounded-full bg-gray-200 text-gray-700 hover:bg-gray-300"
+              className="p-3 rounded-full bg-gray-200 text-gray-700 hover:bg-gray-300 transition-colors"
               title="Attach Image"
             >
               📎
@@ -211,7 +323,7 @@ export default function Home() {
             />
             <button 
               type="submit" 
-              className="bg-green-600 text-white px-4 py-3 md:px-6 rounded font-bold hover:bg-green-700 disabled:opacity-50"
+              className="bg-green-600 text-white px-4 py-3 md:px-6 rounded font-bold hover:bg-green-700 disabled:opacity-50 transition-colors"
               disabled={loading || (!query.trim() && !imageFile)}
             >
               Ask
