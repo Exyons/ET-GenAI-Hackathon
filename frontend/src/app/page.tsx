@@ -8,7 +8,9 @@ export default function Home() {
   const [messages, setMessages] = useState<{ role: string; content: string }[]>([]);
   const [loading, setLoading] = useState(false);
   const [isListening, setIsListening] = useState(false);
+  const [imageFile, setImageFile] = useState<File | null>(null);
   const recognitionRef = useRef<any>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     // Initialize Speech Recognition
@@ -62,12 +64,20 @@ export default function Home() {
     }
   };
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      setImageFile(e.target.files[0]);
+    }
+  };
+
   const handleAsk = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    if (!query.trim()) return;
+    if (!query.trim() && !imageFile) return;
 
-    const currentQuery = query;
-    setMessages((prev) => [...prev, { role: "user", content: currentQuery }]);
+    const currentQuery = query || "Please analyze this image.";
+    const userMessage = imageFile ? `[Attached: ${imageFile.name}] ${currentQuery}` : currentQuery;
+    
+    setMessages((prev) => [...prev, { role: "user", content: userMessage }]);
     setQuery("");
     setLoading(true);
 
@@ -75,17 +85,36 @@ export default function Home() {
       // Convert browser locale format to simple lang code for backend (hi-IN -> hi)
       const backendLang = language.split("-")[0];
       
-      const res = await fetch("http://localhost:8000/api/ask", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query: currentQuery, language: backendLang }),
-      });
+      let res;
+      if (imageFile) {
+        const formData = new FormData();
+        formData.append("file", imageFile);
+        formData.append("language", backendLang);
+        formData.append("query", currentQuery);
+        
+        res = await fetch("http://localhost:8000/api/upload_image", {
+          method: "POST",
+          body: formData,
+        });
+      } else {
+        res = await fetch("http://localhost:8000/api/ask", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ query: currentQuery, language: backendLang }),
+        });
+      }
+      
       const data = await res.json();
       
-      setMessages((prev) => [...prev, { role: "agent", content: data.final_answer }]);
+      const responseContent = data.final_answer || "No response received. Please check backend connection.";
+      setMessages((prev) => [...prev, { role: "agent", content: responseContent }]);
       
       // Auto-play the TTS for the response
-      speak(data.final_answer, language);
+      speak(responseContent, language);
+      
+      // Clear image
+      setImageFile(null);
+      if (fileInputRef.current) fileInputRef.current.value = "";
       
     } catch (error) {
       console.error(error);
@@ -120,7 +149,7 @@ export default function Home() {
               <p className="text-gray-400 text-center mt-10">Ask a question about your crops or farming practices...</p>
             ) : (
               messages.map((msg, i) => (
-                <div key={i} className={`mb-4 p-3 rounded-lg ${msg.role === "user" ? "bg-green-100 ml-auto w-5/6 md:w-3/4" : "bg-gray-100 mr-auto w-5/6 md:w-3/4"}`}>
+                <div key={i} className={`mb-4 p-3 rounded-lg ${msg.role === "user" ? "bg-green-100 ml-auto w-5/6 md:w-3/4" : "bg-gray-100 mr-auto w-5/6 md:w-3/4 whitespace-pre-wrap"}`}>
                   <div className="flex justify-between items-center mb-1">
                     <span className="font-bold text-sm text-green-800">{msg.role === "user" ? "You" : "Kisan AI"}</span>
                     {msg.role === "agent" && (
@@ -139,6 +168,13 @@ export default function Home() {
             {loading && <p className="text-green-600 animate-pulse mt-4 font-bold text-center">Consulting ICAR Guidelines...</p>}
           </div>
 
+          {imageFile && (
+             <div className="mb-2 text-sm text-blue-600 flex justify-between items-center bg-blue-50 p-2 rounded">
+               <span>📎 {imageFile.name}</span>
+               <button onClick={() => { setImageFile(null); if (fileInputRef.current) fileInputRef.current.value = ""; }} className="text-red-500 font-bold hover:text-red-700">X</button>
+             </div>
+          )}
+
           <form onSubmit={handleAsk} className="flex gap-2 items-center">
             <button
               type="button"
@@ -148,6 +184,23 @@ export default function Home() {
             >
               🎤
             </button>
+
+            <input 
+              type="file" 
+              accept="image/*" 
+              ref={fileInputRef} 
+              onChange={handleFileChange} 
+              className="hidden" 
+            />
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="p-3 rounded-full bg-gray-200 text-gray-700 hover:bg-gray-300"
+              title="Attach Image"
+            >
+              📎
+            </button>
+
             <input 
               type="text" 
               value={query}
@@ -159,7 +212,7 @@ export default function Home() {
             <button 
               type="submit" 
               className="bg-green-600 text-white px-4 py-3 md:px-6 rounded font-bold hover:bg-green-700 disabled:opacity-50"
-              disabled={loading || !query.trim()}
+              disabled={loading || (!query.trim() && !imageFile)}
             >
               Ask
             </button>
