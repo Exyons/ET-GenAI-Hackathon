@@ -57,7 +57,7 @@ def translate_to_english_helper(query: str, lang: str) -> str:
 
 def check_intent_helper(query: str) -> bool:
     """Checks if the query is agricultural."""
-    prompt = f"Classify this query: '{query}'. Is this query related to agriculture, farming, crops, weather, or pests? Reply with ONLY 'YES' or 'NO'."
+    prompt = f"Is the following query related to agriculture, farming, crops, plant diseases, weather, or pests? Query: '{query}'. Reply with ONLY 'YES' or 'NO'."
     try:
         response = ollama_client.chat(
             model=OLLAMA_MODEL, messages=[{"role": "user", "content": prompt}]
@@ -67,8 +67,13 @@ def check_intent_helper(query: str) -> bool:
             .strip()
             .upper()
         )
-        return "YES" in ans
-    except Exception:
+        print(f"[DEBUG] Intent classification for '{query}': {ans}")
+        # Be permissive: only reject if it explicitly says NO and doesn't say YES
+        if "NO" in ans and "YES" not in ans:
+            return False
+        return True
+    except Exception as e:
+        print(f"[DEBUG] Intent check failed: {e}")
         return True  # Default to true if fails
 
 
