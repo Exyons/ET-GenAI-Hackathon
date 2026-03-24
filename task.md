@@ -15,7 +15,7 @@
 ## Phase 3: Backend Setup (Python / uv)
 - [x] Initialize backend project with `uv init`.
 - [x] Install dependencies (FastAPI, LangGraph, ChromaDB, Whisper).
-- [ ] Generate mock agricultural compliance data (Markdown/PDFs).
+- [x] Generate mock agricultural compliance data (Markdown/PDFs).
 - [ ] Setup Vector DB (ChromaDB) and ingestion script.
 
 ## Phase 4: Agent Core (LangGraph)
