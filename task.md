@@ -19,11 +19,11 @@
 - [x] Setup Vector DB (ChromaDB) and ingestion script.
 
 ## Phase 4: Agent Core (LangGraph)
-- [ ] Build the VLM perception node (Image to Symptoms).
-- [ ] Build the Weather/Location context node.
-- [ ] Build the Compliance RAG node.
-- [ ] Build the Guardrail/Supervisor node (KVK Fallback).
-- [ ] Create API endpoints for Web App and WhatsApp Webhook.
+- [x] Build the VLM perception node (Image to Symptoms).
+- [x] Build the Weather/Location context node.
+- [x] Build the Compliance RAG node.
+- [x] Build the Guardrail/Supervisor node (KVK Fallback).
+- [x] Create API endpoints for Web App and WhatsApp Webhook.
 
 ## Phase 5: Frontend Setup (Next.js / bun)
 - [x] Initialize frontend with `bun create next-app`.
