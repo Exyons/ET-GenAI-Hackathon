@@ -27,8 +27,8 @@
 
 ## Phase 5: Frontend Setup (Next.js / bun)
 - [x] Initialize frontend with `bun create next-app`.
-- [ ] Build UI: Language selector, Chat interface, Microphone (STT) integration, Image upload.
-- [ ] Integrate TTS playback for model responses.
+- [x] Build UI: Language selector, Chat interface, Microphone (STT) integration, Image upload.
+- [x] Integrate TTS playback for model responses.
 
 ## Phase 6: Testing & Edge Cases
 - [ ] Test out-of-domain queries (medical, political).
