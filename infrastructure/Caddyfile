@@ -1,0 +1,19 @@
+backend.yourdomain.com {
+    # 1. Rate Limiting (Using simple connection limits to prevent DDoS)
+    max_conns_per_ip 10
+
+    # 2. Authentication: Only allow requests with the correct API Key
+    @auth {
+        header X-API-Key {env.SECRET_API_KEY}
+    }
+    
+    # 3. Routing
+    handle @auth {
+        reverse_proxy backend:8000
+    }
+
+    # Block unauthorized requests
+    handle {
+        respond "Unauthorized or Rate Limited" 401
+    }
+}

@@ -4,13 +4,13 @@
 - [x] Initialize Git repository.
 - [x] Create `implementation_plan.md` and `task.md`.
 - [x] Scaffold root directory structure (`/frontend`, `/backend`, `/infrastructure`).
-- [ ] Make initial Git commit.
+- [x] Make initial Git commit.
 
 ## Phase 2: Infrastructure & Deployment Scaffold
-- [ ] Create `Caddyfile` with Rate Limiting (10 req/min) and API Key Auth.
-- [ ] Create `docker-compose.yml` (Backend, Frontend-test, Caddy).
-- [ ] Create `Dockerfile` for Python Backend (using `uv`).
-- [ ] Create `Dockerfile` for Next.js Frontend (using `bun`).
+- [x] Create `Caddyfile` with Rate Limiting (10 req/min) and API Key Auth.
+- [x] Create `docker-compose.yml` (Backend, Frontend-test, Caddy).
+- [x] Create `Dockerfile` for Python Backend (using `uv`).
+- [x] Create `Dockerfile` for Next.js Frontend (using `bun`).
 
 ## Phase 3: Backend Setup (Python / uv)
 - [ ] Initialize backend project with `uv init`.
