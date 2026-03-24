@@ -1,0 +1,36 @@
+# Project Tasks
+
+## Phase 1: Project Initialization
+- [x] Initialize Git repository.
+- [x] Create `implementation_plan.md` and `task.md`.
+- [x] Scaffold root directory structure (`/frontend`, `/backend`, `/infrastructure`).
+- [ ] Make initial Git commit.
+
+## Phase 2: Infrastructure & Deployment Scaffold
+- [ ] Create `Caddyfile` with Rate Limiting (10 req/min) and API Key Auth.
+- [ ] Create `docker-compose.yml` (Backend, Frontend-test, Caddy).
+- [ ] Create `Dockerfile` for Python Backend (using `uv`).
+- [ ] Create `Dockerfile` for Next.js Frontend (using `bun`).
+
+## Phase 3: Backend Setup (Python / uv)
+- [ ] Initialize backend project with `uv init`.
+- [ ] Install dependencies (FastAPI, LangGraph, ChromaDB, Whisper).
+- [ ] Generate mock agricultural compliance data (Markdown/PDFs).
+- [ ] Setup Vector DB (ChromaDB) and ingestion script.
+
+## Phase 4: Agent Core (LangGraph)
+- [ ] Build the VLM perception node (Image to Symptoms).
+- [ ] Build the Weather/Location context node.
+- [ ] Build the Compliance RAG node.
+- [ ] Build the Guardrail/Supervisor node (KVK Fallback).
+- [ ] Create API endpoints for Web App and WhatsApp Webhook.
+
+## Phase 5: Frontend Setup (Next.js / bun)
+- [ ] Initialize frontend with `bun create next-app`.
+- [ ] Build UI: Language selector, Chat interface, Microphone (STT) integration, Image upload.
+- [ ] Integrate TTS playback for model responses.
+
+## Phase 6: Testing & Edge Cases
+- [ ] Test out-of-domain queries (medical, political).
+- [ ] Test language switching via simulated WhatsApp payload.
+- [ ] Verify Caddy rate limiting and auth.
