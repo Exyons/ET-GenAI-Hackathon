@@ -31,6 +31,6 @@
 - [x] Integrate TTS playback for model responses.
 
 ## Phase 6: Testing & Edge Cases
-- [ ] Test out-of-domain queries (medical, political).
-- [ ] Test language switching via simulated WhatsApp payload.
-- [ ] Verify Caddy rate limiting and auth.
+- [x] Test out-of-domain queries (medical, political).
+- [x] Test language switching via simulated WhatsApp payload.
+- [x] Verify Caddy rate limiting and auth.
