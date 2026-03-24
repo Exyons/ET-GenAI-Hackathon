@@ -26,3 +26,25 @@ A domain-specialized AI agent for Indian agriculture designed to operate within 
 ## 5. Development Workflow
 *   **Version Control:** Git repository with continuous, atomic commits.
 *   **Task Tracking:** Maintained via `task.md`.
+
+## 6. Manual Execution Guide
+To run the servers manually during development (without Docker):
+
+### Backend (Python/FastAPI)
+```bash
+cd backend
+# Create a .env file based on .env.example
+cp .env.example .env
+# Activate virtual environment and run
+source .venv/bin/activate
+uvicorn main:app --reload --host 0.0.0.0 --port 8000
+```
+
+### Frontend (Next.js/Bun)
+```bash
+cd frontend
+# Install dependencies if not already done
+bun install
+# Run the development server
+bun run dev
+```
