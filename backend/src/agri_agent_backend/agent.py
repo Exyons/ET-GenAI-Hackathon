@@ -186,7 +186,10 @@ def transcribe_audio(audio_bytes: bytes, lang: str) -> Dict[str, Any]:
             tmp_path = tmp.name
 
         try:
-            segments, info = model.transcribe(tmp_path, language=lang_info["whisper"])
+            # Don't force language — Whisper auto-detects better than forced
+            # Hindi/Marathi/Telugu forced mode often outputs Urdu script instead
+            # The transcribed text goes through translate_to_english anyway
+            segments, info = model.transcribe(tmp_path)
             text = " ".join(seg.text for seg in segments).strip()
         finally:
             os.unlink(tmp_path)
