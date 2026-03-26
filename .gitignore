@@ -1,0 +1,79 @@
+# ========================
+# Environment & Secrets
+# ========================
+.env
+.env.local
+.env.*.local
+*.env
+
+# ========================
+# Python
+# ========================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+*.egg
+dist/
+build/
+.eggs/
+.venv/
+venv/
+env/
+*.whl
+.ruff_cache/
+.mypy_cache/
+.pytest_cache/
+htmlcov/
+.coverage
+*.pyo
+
+# ========================
+# Node.js / Next.js
+# ========================
+node_modules/
+.next/
+out/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+bun.lockb
+.turbo/
+.vercel/
+
+# ========================
+# Runtime / Generated Data
+# ========================
+# Vector database (regenerated via ingest.py)
+chroma_db/
+# SQLite farmer profiles (runtime data)
+*.db
+# Downloaded ICAR raw documents
+backend/data/icar_raw/
+# Whisper model cache
+*.bin
+*.pt
+
+# ========================
+# IDE & OS
+# ========================
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# ========================
+# Docker
+# ========================
+docker-compose.override.yml
+
+# ========================
+# Misc
+# ========================
+*.log
+*.tmp
+*.bak
