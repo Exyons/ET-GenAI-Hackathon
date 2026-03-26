@@ -166,6 +166,8 @@ def translate_from_english(text: str, lang: str) -> Dict[str, Any]:
 
 def transcribe_audio(audio_bytes: bytes, lang: str) -> Dict[str, Any]:
     """Transcribe audio bytes to text using faster-whisper."""
+    import tempfile
+
     start = time.time()
     lang_info = get_lang_info(lang)
     result = {
@@ -177,10 +179,18 @@ def transcribe_audio(audio_bytes: bytes, lang: str) -> Dict[str, Any]:
 
     try:
         model = _get_whisper_model()
-        # Write bytes to a temp buffer
-        audio_buffer = io.BytesIO(audio_bytes)
-        segments, info = model.transcribe(audio_buffer, language=lang_info["whisper"])
-        text = " ".join(seg.text for seg in segments).strip()
+        # faster-whisper needs a file path — write to temp file
+        # Use .webm extension so ffmpeg (used internally) knows the format
+        with tempfile.NamedTemporaryFile(suffix=".webm", delete=False) as tmp:
+            tmp.write(audio_bytes)
+            tmp_path = tmp.name
+
+        try:
+            segments, info = model.transcribe(tmp_path, language=lang_info["whisper"])
+            text = " ".join(seg.text for seg in segments).strip()
+        finally:
+            os.unlink(tmp_path)
+
         duration_ms = int((time.time() - start) * 1000)
 
         result.update({
@@ -196,7 +206,7 @@ def transcribe_audio(audio_bytes: bytes, lang: str) -> Dict[str, Any]:
         })
     except Exception as e:
         result["error"] = str(e)
-        debug_log("STT_ERROR", {"error": str(e)})
+        debug_log("STT_ERROR", {"error": str(e), "audio_size_kb": round(len(audio_bytes) / 1024, 1)})
     return result
 
 

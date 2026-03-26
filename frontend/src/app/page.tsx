@@ -109,36 +109,73 @@ export default function Home() {
   }, []);
 
   // ---------- Audio Recording (STT via backend) ----------
+  const micStreamRef = useRef<MediaStream | null>(null);
+  const isRecordingRef = useRef(false);
+  const recordStartTimeRef = useRef(0);
+  const pendingStopRef = useRef(false);
+
+  // Pre-acquire mic permission on first press, then reuse the stream
+  const ensureMicPermission = async (): Promise<MediaStream> => {
+    if (micStreamRef.current && micStreamRef.current.active) {
+      return micStreamRef.current;
+    }
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    micStreamRef.current = stream;
+    return stream;
+  };
+
   const startRecording = async () => {
+    if (isRecordingRef.current) return;
+    pendingStopRef.current = false;
+
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const stream = await ensureMicPermission();
+
+      // If user released button during the permission dialog, don't start
+      if (pendingStopRef.current) {
+        pendingStopRef.current = false;
+        return;
+      }
+
       const mediaRecorder = new MediaRecorder(stream);
       mediaRecorderRef.current = mediaRecorder;
       audioChunksRef.current = [];
+      recordStartTimeRef.current = Date.now();
 
       mediaRecorder.ondataavailable = (event) => {
         if (event.data.size > 0) audioChunksRef.current.push(event.data);
       };
 
       mediaRecorder.onstop = async () => {
-        stream.getTracks().forEach((tr) => tr.stop());
+        isRecordingRef.current = false;
+        setIsRecording(false);
         const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" });
-        await sendAudioForTranscription(audioBlob);
+        // Only transcribe if we recorded for at least 500ms
+        if (Date.now() - recordStartTimeRef.current >= 500 && audioBlob.size > 100) {
+          await sendAudioForTranscription(audioBlob);
+        }
       };
 
       mediaRecorder.start();
+      isRecordingRef.current = true;
       setIsRecording(true);
     } catch (err) {
       console.error("Microphone access denied:", err);
-      alert("Microphone access is required for voice input.");
+      isRecordingRef.current = false;
+      setIsRecording(false);
     }
   };
 
   const stopRecording = () => {
+    // If startRecording hasn't resolved yet (permission dialog open), mark pending stop
+    if (!isRecordingRef.current) {
+      pendingStopRef.current = true;
+      return;
+    }
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
       mediaRecorderRef.current.stop();
     }
-    setIsRecording(false);
+    // State updates happen in mediaRecorder.onstop
   };
 
   const sendAudioForTranscription = async (audioBlob: Blob) => {
@@ -148,7 +185,11 @@ export default function Home() {
       formData.append("language", language.split("-")[0]);
 
       const res = await fetch(`${API_URL}/api/transcribe`, { method: "POST", body: formData });
-      if (!res.ok) throw new Error("Transcription failed");
+      if (!res.ok) {
+        const detail = await res.text();
+        console.error("Transcription failed:", res.status, detail);
+        return;
+      }
       const data = await res.json();
       if (data.text) setQuery(data.text);
     } catch (err) {
