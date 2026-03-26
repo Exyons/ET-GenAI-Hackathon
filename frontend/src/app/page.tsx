@@ -45,6 +45,26 @@ const ImageIcon = () => (
     <path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z" />
   </svg>
 );
+const DroneIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+    <path d="M22 10l-6-6H8l-6 6 6 6h8l6-6zM12 14.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5zM3 18h18v2H3v-2z"/>
+  </svg>
+);
+
+// Drone types
+interface DroneEvent {
+  type: string;
+  [key: string]: any;
+}
+interface DroneDetection {
+  zone: string;
+  condition: string;
+  confidence: number;
+  severity: string;
+  description: string;
+  lat: number;
+  lon: number;
+}
 
 export default function Home() {
   const [query, setQuery] = useState("");
@@ -55,6 +75,15 @@ export default function Home() {
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [expandedMeta, setExpandedMeta] = useState<Set<number>>(new Set());
   const [isRecording, setIsRecording] = useState(false);
+  const [activeTab, setActiveTab] = useState<"chat" | "drone">("chat");
+
+  // Drone state
+  const [droneRunning, setDroneRunning] = useState(false);
+  const [droneEvents, setDroneEvents] = useState<DroneEvent[]>([]);
+  const [droneDetections, setDroneDetections] = useState<DroneDetection[]>([]);
+  const [droneReport, setDroneReport] = useState<any>(null);
+  const [sprayPlan, setSprayPlan] = useState<any>(null);
+  const [droneTelemetry, setDroneTelemetry] = useState<any>(null);
 
   // Audio playback state
   const [playingIndex, setPlayingIndex] = useState<number | null>(null);
@@ -279,6 +308,92 @@ export default function Home() {
     }
   };
 
+  // ---------- Drone Survey ----------
+  const startDroneSurvey = async () => {
+    setDroneRunning(true);
+    setDroneEvents([]);
+    setDroneDetections([]);
+    setDroneReport(null);
+    setSprayPlan(null);
+    setDroneTelemetry(null);
+
+    try {
+      // Demo field: a farm near Pune, Maharashtra
+      const res = await fetch(`${API_URL}/api/drone/survey`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          nw_lat: 18.5250, nw_lon: 73.8500,
+          se_lat: 18.5150, se_lon: 73.8600,
+          altitude: 50, grid_rows: 4, grid_cols: 4,
+        }),
+      });
+
+      if (!res.body) throw new Error("No response body");
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value, { stream: true });
+        const lines = chunk.split("\n");
+
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          try {
+            const event: DroneEvent = JSON.parse(line.slice(6));
+            setDroneEvents((prev) => [...prev, event]);
+
+            if (event.type === "telemetry") {
+              setDroneTelemetry(event);
+            } else if (event.type === "detection") {
+              setDroneDetections((prev) => [...prev, event as unknown as DroneDetection]);
+            } else if (event.type === "mission_complete") {
+              setDroneReport(event);
+            }
+          } catch {}
+        }
+      }
+    } catch (err) {
+      console.error("Drone survey error:", err);
+    } finally {
+      setDroneRunning(false);
+    }
+  };
+
+  const requestSprayPlan = async () => {
+    if (!droneReport) return;
+    try {
+      const res = await fetch(`${API_URL}/api/drone/spray_plan`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          detections: droneDetections.map(d => ({
+            zone: d.zone, condition: d.condition, severity: d.severity,
+            confidence: d.confidence, lat: d.lat, lon: d.lon,
+          })),
+          field_bounds: { nw: [18.5250, 73.8500], se: [18.5150, 73.8600] },
+        }),
+      });
+      const plan = await res.json();
+      setSprayPlan(plan);
+    } catch (err) {
+      console.error("Spray plan error:", err);
+    }
+  };
+
+  const severityColor = (sev: string) => {
+    switch (sev) {
+      case "healthy": return "bg-green-100 text-green-800 border-green-300";
+      case "mild": return "bg-yellow-100 text-yellow-800 border-yellow-300";
+      case "moderate": return "bg-orange-100 text-orange-800 border-orange-300";
+      case "severe": return "bg-red-100 text-red-800 border-red-300";
+      default: return "bg-gray-100 text-gray-800 border-gray-300";
+    }
+  };
+
   // ---------- Rendering ----------
   const renderMessageContent = (content: string) => {
     const thinkMatch = content.match(/<think>([\s\S]*?)(?:<\/think>|$)/);
@@ -438,7 +553,145 @@ export default function Home() {
           </select>
         </div>
 
-        <div className="bg-white p-4 md:p-6 rounded-lg shadow-md w-full mx-auto max-w-2xl min-h-[400px] flex flex-col">
+        {/* Tabs */}
+        <div className="flex gap-2 mb-4 mx-auto max-w-2xl">
+          <button
+            onClick={() => setActiveTab("chat")}
+            className={`flex-1 py-2 px-4 rounded-t-lg font-bold text-sm transition-colors ${activeTab === "chat" ? "bg-white text-green-800 shadow-md" : "bg-green-200 text-green-700 hover:bg-green-100"}`}
+          >
+            {t(language, "tab_chat")}
+          </button>
+          <button
+            onClick={() => setActiveTab("drone")}
+            className={`flex-1 py-2 px-4 rounded-t-lg font-bold text-sm transition-colors flex items-center justify-center gap-2 ${activeTab === "drone" ? "bg-white text-green-800 shadow-md" : "bg-green-200 text-green-700 hover:bg-green-100"}`}
+          >
+            <DroneIcon /> {t(language, "tab_drone")}
+          </button>
+        </div>
+
+        {/* Drone Survey Panel */}
+        {activeTab === "drone" && (
+          <div className="bg-white p-4 md:p-6 rounded-lg shadow-md w-full mx-auto max-w-2xl min-h-[400px]">
+            <h2 className="text-xl font-bold text-green-800 mb-4 flex items-center gap-2">
+              <DroneIcon /> {t(language, "drone_title")}
+            </h2>
+
+            <button
+              onClick={startDroneSurvey}
+              disabled={droneRunning}
+              className="w-full bg-green-600 text-white py-3 rounded font-bold hover:bg-green-700 disabled:opacity-50 transition-colors mb-4"
+            >
+              {droneRunning ? t(language, "drone_scanning") : t(language, "drone_start")}
+            </button>
+
+            {/* Live Telemetry */}
+            {droneTelemetry && droneRunning && (
+              <div className="bg-gray-50 border border-gray-200 rounded p-3 mb-4 text-sm grid grid-cols-2 md:grid-cols-4 gap-2">
+                <div><span className="text-gray-500">{t(language, "drone_waypoint")}:</span> <span className="font-mono font-bold">{droneTelemetry.waypoint}/{droneTelemetry.total_waypoints}</span></div>
+                <div><span className="text-gray-500">{t(language, "drone_altitude")}:</span> <span className="font-mono font-bold">{droneTelemetry.altitude_m}m</span></div>
+                <div><span className="text-gray-500">{t(language, "drone_battery")}:</span> <span className={`font-mono font-bold ${droneTelemetry.battery_pct < 20 ? "text-red-600" : "text-green-600"}`}>{droneTelemetry.battery_pct}%</span></div>
+                <div><span className="text-gray-500">Speed:</span> <span className="font-mono font-bold">{droneTelemetry.speed_ms}m/s</span></div>
+              </div>
+            )}
+
+            {/* Live Detection Feed */}
+            {droneDetections.length > 0 && !droneReport && (
+              <div className="space-y-2 mb-4 max-h-60 overflow-y-auto">
+                {droneDetections.slice(-6).map((det, i) => (
+                  <div key={i} className={`p-2 rounded border text-sm ${severityColor(det.severity)}`}>
+                    <div className="flex justify-between items-center">
+                      <span className="font-bold">{t(language, "drone_zone")} {det.zone}</span>
+                      <span className="font-mono text-xs">{Math.round(det.confidence * 100)}%</span>
+                    </div>
+                    <div className="text-xs mt-1">{det.condition.replace(/_/g, " ")}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Final Report */}
+            {droneReport && (
+              <div className="border border-gray-200 rounded-lg overflow-hidden mb-4">
+                <div className={`p-3 font-bold text-center ${droneReport.overall_health === "healthy" ? "bg-green-100 text-green-800" : droneReport.overall_health === "critical" ? "bg-red-100 text-red-800" : "bg-yellow-100 text-yellow-800"}`}>
+                  {t(language, "drone_complete")} — {t(language, droneReport.overall_health === "healthy" ? "drone_healthy" : droneReport.overall_health === "critical" ? "drone_critical" : "drone_warning")}
+                </div>
+
+                <div className="p-3 text-sm grid grid-cols-2 md:grid-cols-4 gap-2 bg-gray-50">
+                  <div><span className="text-gray-500">{t(language, "drone_field_area")}:</span> <span className="font-bold">{droneReport.area_covered_hectares} ha</span></div>
+                  <div><span className="text-gray-500">{t(language, "drone_waypoint")}:</span> <span className="font-bold">{droneReport.waypoints_surveyed}</span></div>
+                  <div><span className="text-gray-500">{t(language, "drone_battery")}:</span> <span className="font-bold">{droneReport.battery_remaining_pct}%</span></div>
+                  <div><span className="text-gray-500">Time:</span> <span className="font-bold">{droneReport.total_time_s}s</span></div>
+                </div>
+
+                {/* Zone Grid */}
+                <div className="p-3">
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                    {droneReport.zone_summaries?.map((z: any, i: number) => (
+                      <div key={i} className={`p-2 rounded border text-xs ${severityColor(z.status)}`}>
+                        <div className="font-bold">{t(language, "drone_zone")} {z.zone}</div>
+                        <div className="mt-1">{z.condition ? z.condition.replace(/_/g, " ") : t(language, "drone_healthy")}</div>
+                        {z.confidence && <div className="font-mono">{Math.round(z.confidence * 100)}%</div>}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Issues */}
+                {droneReport.issues?.length > 0 && (
+                  <div className="p-3 border-t border-gray-200">
+                    <h3 className="font-bold text-sm mb-2">Issues Found ({droneReport.issues_count})</h3>
+                    {droneReport.issues.map((issue: any, i: number) => (
+                      <div key={i} className="mb-2 p-2 bg-red-50 border border-red-200 rounded text-sm">
+                        <div className="font-bold">{t(language, "drone_zone")} {issue.zone}: {issue.condition.replace(/_/g, " ")} ({issue.severity})</div>
+                        <div className="text-xs text-gray-700 mt-1">{issue.recommendation}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {droneReport.issues_count === 0 && (
+                  <div className="p-3 text-center text-green-700 font-bold">{t(language, "drone_no_issues")}</div>
+                )}
+
+                {/* Spray Plan Button */}
+                {droneReport.issues_count > 0 && (
+                  <div className="p-3 border-t border-gray-200">
+                    <button
+                      onClick={requestSprayPlan}
+                      className="w-full bg-orange-500 text-white py-2 rounded font-bold hover:bg-orange-600 transition-colors"
+                    >
+                      {t(language, "drone_spray_plan")}
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Spray Plan */}
+            {sprayPlan && sprayPlan.status === "spray_plan_ready" && (
+              <div className="border border-orange-200 rounded-lg bg-orange-50 p-3 mb-4">
+                <h3 className="font-bold text-orange-800 mb-2">{t(language, "drone_spray_plan")}</h3>
+                <div className="text-sm mb-2">
+                  <span className="text-gray-600">Affected: </span>
+                  <span className="font-bold">{sprayPlan.total_affected_area_hectares} ha</span>
+                  <span className="text-gray-600"> / {sprayPlan.total_field_area_hectares} ha total</span>
+                  <span className="ml-2 text-green-700 font-bold">({sprayPlan.chemical_savings_pct}% chemical savings)</span>
+                </div>
+                {sprayPlan.missions?.map((m: any, i: number) => (
+                  <div key={i} className={`p-2 mb-2 rounded border text-sm ${m.priority === "high" ? "bg-red-50 border-red-300" : "bg-yellow-50 border-yellow-300"}`}>
+                    <div className="font-bold">{m.condition.replace(/_/g, " ")} — Zones: {m.zones.join(", ")}</div>
+                    <div className="text-xs mt-1">{m.treatment}</div>
+                    <div className="text-xs mt-1 text-gray-500">Area: {m.affected_area_hectares} ha | Priority: {m.priority}</div>
+                  </div>
+                ))}
+                <div className="text-xs text-gray-500 mt-2 italic">{sprayPlan.note}</div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Chat Panel */}
+        <div className={`bg-white p-4 md:p-6 rounded-lg shadow-md w-full mx-auto max-w-2xl min-h-[400px] flex flex-col ${activeTab !== "chat" ? "hidden" : ""}`}>
           <div className="flex-grow overflow-y-auto mb-4 border-b border-gray-200 pb-4 h-96">
             {messages.length === 0 ? (
               <p className="text-gray-400 text-center mt-10">{t(language, "placeholder_empty")}</p>

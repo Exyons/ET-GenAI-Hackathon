@@ -30,6 +30,7 @@ from .whatsapp import (
     send_whatsapp_text,
     META_VERIFY_TOKEN,
 )
+from .drone import DroneSimulator, generate_spray_plan
 
 load_dotenv()
 
@@ -408,3 +409,60 @@ async def whatsapp_webhook(request: Request):
     send_whatsapp_text(msg_info["from"], reply)
 
     return {"status": "ok"}
+
+
+# --------------- Drone Simulation ---------------
+
+
+class SurveyRequest(BaseModel):
+    """Field bounds for drone survey."""
+    nw_lat: float
+    nw_lon: float
+    se_lat: float
+    se_lon: float
+    altitude: float = 50.0
+    grid_rows: int = 4
+    grid_cols: int = 4
+
+
+class SprayPlanRequest(BaseModel):
+    """Detections from a survey for spray plan generation."""
+    detections: list[dict]
+    field_bounds: dict
+
+
+@app.post("/api/drone/survey")
+async def drone_survey(req: SurveyRequest):
+    """Start a drone survey simulation. Returns SSE stream of telemetry + detections."""
+
+    field_bounds = {
+        "nw": [req.nw_lat, req.nw_lon],
+        "se": [req.se_lat, req.se_lon],
+    }
+
+    debug_log("DRONE_SURVEY", {
+        "field_bounds": field_bounds,
+        "altitude": req.altitude,
+        "grid": f"{req.grid_rows}x{req.grid_cols}",
+    })
+
+    sim = DroneSimulator(
+        field_bounds=field_bounds,
+        altitude=req.altitude,
+        grid_rows=req.grid_rows,
+        grid_cols=req.grid_cols,
+    )
+
+    def event_generator():
+        for event in sim.run_survey(step_delay=0.3):
+            yield sse_event(event)
+
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
+
+
+@app.post("/api/drone/spray_plan")
+async def drone_spray_plan(req: SprayPlanRequest):
+    """Generate a precision spray plan from drone survey detections."""
+    debug_log("SPRAY_PLAN", {"num_detections": len(req.detections)})
+    plan = generate_spray_plan(req.detections, req.field_bounds)
+    return plan
