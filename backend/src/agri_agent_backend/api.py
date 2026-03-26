@@ -93,6 +93,9 @@ async def ask_agent_stream(req: QueryRequest):
                 reject_en = "I am an agricultural assistant. I can only help with farming, crops, and agriculture-related questions."
                 reject_translated = translate_from_english(reject_en, req.language)
                 yield sse_event({"type": "chunk", "content": reject_translated["translated_text"]})
+                tts_result = text_to_speech(reject_translated["translated_text"], req.language)
+                if tts_result["audio_base64"]:
+                    yield sse_event({"type": "audio", "audio_base64": tts_result["audio_base64"]})
                 yield sse_event({"type": "done", "total_duration_ms": int((time.time() - pipeline_start) * 1000)})
                 return
 
@@ -213,6 +216,9 @@ async def upload_image_stream(
                 reject_en = "This image does not appear to contain agricultural or farming content. Please upload a photo of your crop, field, or plant so I can help diagnose any issues."
                 reject_translated = translate_from_english(reject_en, language)
                 yield sse_event({"type": "chunk", "content": reject_translated["translated_text"]})
+                tts_result = text_to_speech(reject_translated["translated_text"], language)
+                if tts_result["audio_base64"]:
+                    yield sse_event({"type": "audio", "audio_base64": tts_result["audio_base64"]})
                 yield sse_event({"type": "done", "total_duration_ms": int((time.time() - pipeline_start) * 1000)})
                 return
 
