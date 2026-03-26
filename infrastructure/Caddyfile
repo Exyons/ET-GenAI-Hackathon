@@ -1,13 +1,17 @@
 backend.yourdomain.com {
-    # 1. Rate Limiting (Using simple connection limits to prevent DDoS)
+    # 1. Rate Limiting
     max_conns_per_ip 10
 
-    # 2. Authentication: Only allow requests with the correct API Key
+    # 2. Public webhook endpoints (no auth — Twilio/Meta POST to these)
+    @webhook path /api/sms/webhook /api/whatsapp/webhook
+    handle @webhook {
+        reverse_proxy backend:8000
+    }
+
+    # 3. Authenticated API endpoints
     @auth {
         header X-API-Key {env.SECRET_API_KEY}
     }
-    
-    # 3. Routing
     handle @auth {
         reverse_proxy backend:8000
     }

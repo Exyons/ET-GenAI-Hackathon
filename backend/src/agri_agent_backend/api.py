@@ -1,5 +1,5 @@
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Request
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, PlainTextResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional
@@ -22,6 +22,13 @@ from .agent import (
     ollama_client,
     OLLAMA_MODEL,
     DEBUG_MODE,
+)
+from .sms import handle_incoming_sms, send_sms
+from .whatsapp import (
+    parse_webhook_payload,
+    handle_whatsapp_message,
+    send_whatsapp_text,
+    META_VERIFY_TOKEN,
 )
 
 load_dotenv()
@@ -340,7 +347,64 @@ async def transcribe_endpoint(
     return {"text": result["text"], "language_detected": result["language_detected"]}
 
 
-@app.post("/api/whatsapp_webhook")
+# --------------- SMS (Twilio) ---------------
+
+@app.post("/api/sms/webhook")
+async def sms_webhook(request: Request):
+    """Twilio SMS webhook — receives incoming SMS, replies via Twilio."""
+    form = await request.form()
+    from_phone = form.get("From", "")
+    body = form.get("Body", "")
+
+    if not from_phone or not body:
+        return PlainTextResponse("OK")
+
+    debug_log("SMS_WEBHOOK", {"from": from_phone, "body": body[:100]})
+
+    # Process and get reply
+    reply = handle_incoming_sms(from_phone, body)
+
+    # Send reply via Twilio
+    send_sms(from_phone, reply)
+
+    # Return TwiML empty response (we send via API, not TwiML)
+    return PlainTextResponse(
+        '<?xml version="1.0" encoding="UTF-8"?><Response></Response>',
+        media_type="application/xml",
+    )
+
+
+# --------------- WhatsApp (Meta Cloud API) ---------------
+
+@app.get("/api/whatsapp/webhook")
+async def whatsapp_verify(request: Request):
+    """Meta webhook verification (GET request with challenge)."""
+    params = request.query_params
+    mode = params.get("hub.mode", "")
+    token = params.get("hub.verify_token", "")
+    challenge = params.get("hub.challenge", "")
+
+    if mode == "subscribe" and token == META_VERIFY_TOKEN:
+        debug_log("WA_VERIFY", {"status": "verified"})
+        return PlainTextResponse(challenge)
+
+    debug_log("WA_VERIFY", {"status": "rejected", "token": token})
+    return PlainTextResponse("Forbidden", status_code=403)
+
+
+@app.post("/api/whatsapp/webhook")
 async def whatsapp_webhook(request: Request):
-    """Webhook for Meta WhatsApp Cloud API (Low-bandwidth connection)"""
-    return {"status": "success", "message": "Webhook received"}
+    """Meta WhatsApp webhook — receives messages, replies via API."""
+    payload = await request.json()
+    debug_log("WA_WEBHOOK_RAW", {"payload_keys": list(payload.keys())})
+
+    msg_info = parse_webhook_payload(payload)
+    if not msg_info:
+        # Not a user message (could be status update, etc.)
+        return {"status": "ok"}
+
+    # Process and reply
+    reply = handle_whatsapp_message(msg_info)
+    send_whatsapp_text(msg_info["from"], reply)
+
+    return {"status": "ok"}
