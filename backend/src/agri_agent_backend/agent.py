@@ -58,7 +58,7 @@ def _get_whisper_model():
     if _whisper_model is None:
         from faster_whisper import WhisperModel
         debug_log("WHISPER_INIT", {"model": WHISPER_MODEL})
-        _whisper_model = WhisperModel(WHISPER_MODEL, compute_type="int8")
+        _whisper_model = WhisperModel(WHISPER_MODEL, device="cpu", compute_type="int8")
     return _whisper_model
 
 
