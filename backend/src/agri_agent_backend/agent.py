@@ -213,11 +213,21 @@ def text_to_speech(text: str, lang: str) -> Dict[str, Any]:
     }
 
     try:
-        # Clean think tags from TTS output
+        # Clean think tags from TTS output (handle both closed and unclosed)
         clean_text = clean_think_tags(text)
+        # Also remove unclosed <think> tags
+        clean_text = re.sub(r"<think>.*", "", clean_text, flags=re.DOTALL).strip()
+        # Remove any remaining HTML-like tags
+        clean_text = re.sub(r"<[^>]+>", "", clean_text).strip()
         if not clean_text:
             result["error"] = "No text to speak"
             return result
+
+        # gTTS has practical limits — truncate very long text
+        max_tts_chars = 5000
+        if len(clean_text) > max_tts_chars:
+            clean_text = clean_text[:max_tts_chars]
+            debug_log("TTS", {"warning": f"Truncated to {max_tts_chars} chars"})
 
         tts = gTTS(text=clean_text, lang=lang_info["gtts"])
         audio_buffer = io.BytesIO()
@@ -238,6 +248,7 @@ def text_to_speech(text: str, lang: str) -> Dict[str, Any]:
         })
     except Exception as e:
         result["error"] = str(e)
+        debug_log("TTS_ERROR", {"error": str(e), "text_preview": text[:100]})
         debug_log("TTS_ERROR", {"error": str(e)})
     return result
 

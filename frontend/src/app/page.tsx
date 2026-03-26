@@ -230,66 +230,79 @@ export default function Home() {
       let fullText = "";
       const metadata: PipelineMetadata = {};
       let audioBase64 = "";
+      let sseBuffer = "";
+
+      const processSSELine = (line: string) => {
+        if (!line.startsWith("data: ")) return;
+        const dataStr = line.slice(6).trim();
+        if (!dataStr) return;
+
+        let data;
+        try { data = JSON.parse(dataStr); } catch { return; }
+
+        if (data.type === "chunk") {
+          if (loadingIntervalRef.current) {
+            clearInterval(loadingIntervalRef.current);
+            loadingIntervalRef.current = null;
+            setLoadingText("");
+          }
+          fullText += data.content;
+          setMessages((prev) => {
+            const n = [...prev];
+            n[n.length - 1] = { ...n[n.length - 1], content: fullText };
+            return n;
+          });
+        } else if (data.type === "metadata") {
+          (metadata as any)[data.step] = data.data;
+          setMessages((prev) => {
+            const n = [...prev];
+            n[n.length - 1] = { ...n[n.length - 1], metadata: { ...metadata } };
+            return n;
+          });
+        } else if (data.type === "audio") {
+          audioBase64 = data.audio_base64;
+          setMessages((prev) => {
+            const n = [...prev];
+            n[n.length - 1] = { ...n[n.length - 1], audioBase64 };
+            return n;
+          });
+        } else if (data.type === "done") {
+          metadata.total_duration_ms = data.total_duration_ms;
+          setMessages((prev) => {
+            const n = [...prev];
+            n[n.length - 1] = { ...n[n.length - 1], metadata: { ...metadata } };
+            return n;
+          });
+        } else if (data.type === "error") {
+          fullText += `\n[Error: ${data.message}]`;
+          setMessages((prev) => {
+            const n = [...prev];
+            n[n.length - 1] = { ...n[n.length - 1], content: fullText };
+            return n;
+          });
+        }
+      };
 
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
 
-        const chunk = decoder.decode(value, { stream: true });
-        const lines = chunk.split("\n");
+        sseBuffer += decoder.decode(value, { stream: true });
+        // SSE events are delimited by double newlines; split on them
+        const parts = sseBuffer.split("\n\n");
+        // Last part may be incomplete — keep it in the buffer
+        sseBuffer = parts.pop() || "";
 
-        for (const line of lines) {
-          if (!line.startsWith("data: ")) continue;
-          const dataStr = line.slice(6).trim();
-          if (!dataStr) continue;
-
-          try {
-            const data = JSON.parse(dataStr);
-
-            if (data.type === "chunk") {
-              if (loadingIntervalRef.current) {
-                clearInterval(loadingIntervalRef.current);
-                loadingIntervalRef.current = null;
-                setLoadingText("");
-              }
-              fullText += data.content;
-              setMessages((prev) => {
-                const n = [...prev];
-                n[n.length - 1] = { ...n[n.length - 1], content: fullText };
-                return n;
-              });
-            } else if (data.type === "metadata") {
-              (metadata as any)[data.step] = data.data;
-              setMessages((prev) => {
-                const n = [...prev];
-                n[n.length - 1] = { ...n[n.length - 1], metadata: { ...metadata } };
-                return n;
-              });
-            } else if (data.type === "audio") {
-              audioBase64 = data.audio_base64;
-              setMessages((prev) => {
-                const n = [...prev];
-                n[n.length - 1] = { ...n[n.length - 1], audioBase64 };
-                return n;
-              });
-            } else if (data.type === "done") {
-              metadata.total_duration_ms = data.total_duration_ms;
-              setMessages((prev) => {
-                const n = [...prev];
-                n[n.length - 1] = { ...n[n.length - 1], metadata: { ...metadata } };
-                return n;
-              });
-            } else if (data.type === "error") {
-              fullText += `\n[Error: ${data.message}]`;
-              setMessages((prev) => {
-                const n = [...prev];
-                n[n.length - 1] = { ...n[n.length - 1], content: fullText };
-                return n;
-              });
-            }
-          } catch (err) {
-            console.error("SSE parse error:", err);
+        for (const part of parts) {
+          for (const line of part.split("\n")) {
+            processSSELine(line);
           }
+        }
+      }
+      // Process any remaining buffer
+      if (sseBuffer.trim()) {
+        for (const line of sseBuffer.split("\n")) {
+          processSSELine(line);
         }
       }
     } catch (error) {
