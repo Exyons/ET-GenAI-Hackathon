@@ -18,6 +18,7 @@ dependencies = [
     "gtts>=2.5.4",
     "twilio>=9.10.4",
     "httpx>=0.28.1",
+    "beautifulsoup4>=4.14.3",
 ]
 readme = "README.md"
 requires-python = ">= 3.11"
