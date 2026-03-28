@@ -48,7 +48,10 @@ export type LangKey =
   | "drone_altitude"
   | "drone_spray_plan"
   | "drone_no_issues"
-  | "drone_field_area";
+  | "drone_field_area"
+  | "chat_history"
+  | "new_chat"
+  | "delete_chat";
 
 const strings: Record<string, Record<LangKey, string>> = {
   "en-IN": {
@@ -100,6 +103,9 @@ const strings: Record<string, Record<LangKey, string>> = {
     drone_spray_plan: "Generate Spray Plan",
     drone_no_issues: "No issues detected - field is healthy!",
     drone_field_area: "Field Area",
+    chat_history: "Chat History",
+    new_chat: "New Chat",
+    delete_chat: "Delete chat",
   },
   "hi-IN": {
     title: "किसान AI - कृषि सलाहकार",
@@ -150,6 +156,9 @@ const strings: Record<string, Record<LangKey, string>> = {
     drone_spray_plan: "स्प्रे योजना बनाएं",
     drone_no_issues: "कोई समस्या नहीं - खेत स्वस्थ है!",
     drone_field_area: "खेत का क्षेत्रफल",
+    chat_history: "चैट इतिहास",
+    new_chat: "नई चैट",
+    delete_chat: "चैट हटाएं",
   },
   "mr-IN": {
     title: "किसान AI - कृषी सल्लागार",
@@ -200,6 +209,9 @@ const strings: Record<string, Record<LangKey, string>> = {
     drone_spray_plan: "फवारणी योजना तयार करा",
     drone_no_issues: "कोणतीही समस्या नाही - शेत निरोगी आहे!",
     drone_field_area: "शेताचे क्षेत्रफळ",
+    chat_history: "चॅट इतिहास",
+    new_chat: "नवीन चॅट",
+    delete_chat: "चॅट हटवा",
   },
   "te-IN": {
     title: "కిసాన్ AI - వ్యవసాయ సలహాదారు",
@@ -250,6 +262,9 @@ const strings: Record<string, Record<LangKey, string>> = {
     drone_spray_plan: "స్ప్రే ప్లాన్ తయారు చేయండి",
     drone_no_issues: "సమస్యలు లేవు - పొలం ఆరోగ్యంగా ఉంది!",
     drone_field_area: "పొలం విస్తీర్ణం",
+    chat_history: "చాట్ చరిత్ర",
+    new_chat: "కొత్త చాట్",
+    delete_chat: "చాట్ తొలగించు",
   },
 };
 

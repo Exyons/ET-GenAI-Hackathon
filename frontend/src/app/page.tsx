@@ -1,8 +1,10 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import dynamic from "next/dynamic";
 import { t, loadingPhrases } from "./i18n";
+import { useChatSessions } from "@/components/chat/useChatSessions";
+import ChatSidebar from "@/components/chat/ChatSidebar";
 
 const DroneSimulatorScene = dynamic(
   () => import("@/components/drone-simulator/DroneSimulatorScene"),
@@ -59,6 +61,16 @@ const DroneIcon = () => (
 
 
 export default function Home() {
+  const {
+    sessions,
+    activeSession,
+    activeSessionId,
+    createSession,
+    switchSession,
+    updateSession,
+    deleteSession,
+  } = useChatSessions();
+
   const [query, setQuery] = useState("");
   const [language, setLanguage] = useState("hi-IN");
   const [messages, setMessages] = useState<Message[]>([]);
@@ -68,6 +80,38 @@ export default function Home() {
   const [expandedMeta, setExpandedMeta] = useState<Set<number>>(new Set());
   const [isRecording, setIsRecording] = useState(false);
   const [activeTab, setActiveTab] = useState<"chat" | "drone">("chat");
+
+  // Sync messages from active session on switch
+  useEffect(() => {
+    if (activeSession) {
+      setMessages(activeSession.messages);
+      setLanguage(activeSession.language);
+      setExpandedMeta(new Set());
+    }
+  }, [activeSessionId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Persist messages to session whenever they change (debounced via ref to avoid loops)
+  const persistRef = useRef(false);
+  useEffect(() => {
+    if (!activeSessionId || !persistRef.current) {
+      persistRef.current = true;
+      return;
+    }
+    updateSession(activeSessionId, messages, language);
+  }, [messages]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleNewChat = useCallback(() => {
+    createSession(language);
+    setMessages([]);
+    setQuery("");
+    setExpandedMeta(new Set());
+    setActiveTab("chat");
+  }, [createSession, language]);
+
+  const handleSwitchSession = useCallback((id: string) => {
+    switchSession(id);
+    setActiveTab("chat");
+  }, [switchSession]);
 
   // Audio playback state
   const [playingIndex, setPlayingIndex] = useState<number | null>(null);
@@ -487,11 +531,21 @@ export default function Home() {
   );
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-between p-4 md:p-8 bg-green-50 text-gray-800">
-      <div className="z-10 w-full max-w-5xl items-center justify-between font-mono text-sm">
-        <h1 className="text-3xl md:text-4xl font-bold text-center text-green-800 mb-8">{t(language, "title")}</h1>
+    <div className="flex min-h-screen bg-green-50 text-gray-800">
+      <ChatSidebar
+        sessions={sessions}
+        activeSessionId={activeSessionId}
+        language={language}
+        onNewChat={handleNewChat}
+        onSwitchSession={handleSwitchSession}
+        onDeleteSession={deleteSession}
+      />
 
-        <div className="bg-white p-4 md:p-6 rounded-lg shadow-md mb-6 w-full mx-auto max-w-2xl">
+      <main className="flex-1 flex flex-col items-center p-4 md:p-8 overflow-y-auto">
+        <div className="z-10 w-full max-w-5xl font-mono text-sm">
+          <h1 className="text-3xl md:text-4xl font-bold text-center text-green-800 mb-8">{t(language, "title")}</h1>
+
+          <div className="bg-white p-4 md:p-6 rounded-lg shadow-md mb-6 w-full mx-auto max-w-2xl">
           <label className="block mb-2 font-bold">{t(language, "language_label")}</label>
           <select
             value={language}
@@ -626,7 +680,8 @@ export default function Home() {
             </button>
           </form>
         </div>
-      </div>
-    </main>
+        </div>
+      </main>
+    </div>
   );
 }
