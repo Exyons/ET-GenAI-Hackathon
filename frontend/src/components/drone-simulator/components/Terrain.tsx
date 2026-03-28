@@ -89,7 +89,7 @@ export default function Terrain({ bounds }: TerrainProps) {
       {/* Surrounding ground plane (larger, flatter) */}
       <mesh
         rotation={[-Math.PI / 2, 0, 0]}
-        position={[0, -0.1, 0]}
+        position={[0, -0.5, 0]}
         receiveShadow
       >
         <planeGeometry args={[width * 3, height * 3]} />

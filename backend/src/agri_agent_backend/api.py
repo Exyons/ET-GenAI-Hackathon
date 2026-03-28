@@ -460,7 +460,8 @@ async def drone_survey(req: SurveyRequest):
     )
 
     def event_generator():
-        for event in sim.run_survey(step_delay=0.3):
+        # EDIT step_delay to change drone survey pace (seconds between waypoints)
+        for event in sim.run_survey(step_delay=0.8):
             yield sse_event(event)
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")

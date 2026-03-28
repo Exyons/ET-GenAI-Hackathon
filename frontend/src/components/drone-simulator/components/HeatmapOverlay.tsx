@@ -79,7 +79,7 @@ export default function HeatmapOverlay({ detections, bounds }: HeatmapOverlayPro
   return (
     <mesh
       rotation={[-Math.PI / 2, 0, 0]}
-      position={[0, 0.15, 0]}
+      position={[0, 0.6, 0]}
     >
       <primitive object={geometry.geo} attach="geometry" />
       <meshBasicMaterial
@@ -88,6 +88,9 @@ export default function HeatmapOverlay({ detections, bounds }: HeatmapOverlayPro
         opacity={0.55}
         side={THREE.DoubleSide}
         depthWrite={false}
+        polygonOffset
+        polygonOffsetFactor={-1}
+        polygonOffsetUnits={-1}
       />
     </mesh>
   );

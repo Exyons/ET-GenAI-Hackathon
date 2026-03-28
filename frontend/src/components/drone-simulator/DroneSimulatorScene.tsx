@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense } from "react";
+import { Suspense, useState } from "react";
 import { Canvas } from "@react-three/fiber";
 import { OrbitControls } from "@react-three/drei";
 import { t } from "@/app/i18n";
@@ -16,6 +16,7 @@ import DetectionMarkers from "./components/DetectionMarkers";
 import TelemetryHUD from "./components/TelemetryHUD";
 import SprayEffect from "./components/SprayEffect";
 import PostProcessing from "./components/PostProcessing";
+import CameraController from "./components/CameraController";
 
 interface DroneSimulatorSceneProps {
   language: string;
@@ -58,6 +59,8 @@ export default function DroneSimulatorScene({ language }: DroneSimulatorScenePro
       default: return "bg-gray-100 text-gray-800 border-gray-300";
     }
   };
+
+  const [showHelp, setShowHelp] = useState(false);
 
   const handleStartSurvey = () => {
     resetSprayPlan();
@@ -123,9 +126,14 @@ export default function DroneSimulatorScene({ language }: DroneSimulatorScenePro
             makeDefault
             enableDamping
             dampingFactor={0.1}
-            minDistance={20}
+            minDistance={10}
             maxDistance={200}
             maxPolarAngle={Math.PI / 2.1}
+          />
+          <CameraController
+            telemetry={telemetry}
+            bounds={bounds}
+            status={status}
           />
         </Canvas>
 
@@ -135,6 +143,42 @@ export default function DroneSimulatorScene({ language }: DroneSimulatorScenePro
           status={status}
           missionComplete={missionComplete}
         />
+
+        {/* Help button */}
+        <button
+          onClick={() => setShowHelp((v) => !v)}
+          className="absolute bottom-3 right-3 w-8 h-8 bg-black/60 backdrop-blur-sm rounded-full text-white text-sm font-bold hover:bg-black/80 transition-colors flex items-center justify-center"
+          title="Viewport controls"
+        >
+          ?
+        </button>
+
+        {/* Help popup */}
+        {showHelp && (
+          <div className="absolute bottom-14 right-3 bg-black/85 backdrop-blur-sm rounded-lg p-4 text-white text-xs font-mono space-y-2 min-w-[220px] shadow-xl">
+            <div className="font-bold text-sm mb-2 text-green-400">Viewport Controls</div>
+            <div className="flex justify-between gap-4">
+              <span className="text-gray-400">Rotate</span>
+              <span>Left Click + Drag</span>
+            </div>
+            <div className="flex justify-between gap-4">
+              <span className="text-gray-400">Pan</span>
+              <span>Right Click + Drag</span>
+            </div>
+            <div className="flex justify-between gap-4">
+              <span className="text-gray-400">Zoom</span>
+              <span>Scroll Wheel</span>
+            </div>
+            <div className="flex justify-between gap-4">
+              <span className="text-gray-400">Pan (alt)</span>
+              <span>Middle Click + Drag</span>
+            </div>
+            <hr className="border-gray-600" />
+            <div className="text-gray-400 text-[10px]">
+              Camera auto-follows drone. Interact to take manual control — auto-follow resumes after 3s.
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Live Detection Feed (during survey) */}

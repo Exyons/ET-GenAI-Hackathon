@@ -55,8 +55,9 @@ export default function DroneModel({ telemetry, prevTelemetry, bounds, status }:
       targetPos = currentPos.current.clone();
     }
 
-    // Smooth position interpolation
-    const lerpSpeed = 3.0;
+    // Smooth position interpolation — lower = slower/smoother drone movement
+    // EDIT HERE to change drone visual speed (0.5 = very slow, 2.0 = fast)
+    const lerpSpeed = 1.2;
     currentPos.current.lerp(targetPos, Math.min(1, delta * lerpSpeed));
     groupRef.current.position.copy(currentPos.current);
 
