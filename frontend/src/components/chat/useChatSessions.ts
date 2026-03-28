@@ -74,11 +74,12 @@ export function useChatSessions() {
     const savedActiveId = loadActiveId();
 
     if (loaded.length === 0) {
-      // Create a default session
+      // Create a default session — use stored language preference
+      const savedLang = localStorage.getItem("kisan-ai-language") || "hi-IN";
       const newSession: ChatSession = {
         id: generateId(),
         title: "New Chat",
-        language: "hi-IN",
+        language: savedLang,
         messages: [],
         createdAt: Date.now(),
         updatedAt: Date.now(),
@@ -152,10 +153,11 @@ export function useChatSessions() {
 
         if (next.length === 0) {
           // Always keep at least one session
+          const savedLang = localStorage.getItem("kisan-ai-language") || "hi-IN";
           const newSession: ChatSession = {
             id: generateId(),
             title: "New Chat",
-            language: "hi-IN",
+            language: savedLang,
             messages: [],
             createdAt: Date.now(),
             updatedAt: Date.now(),

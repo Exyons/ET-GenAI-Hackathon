@@ -94,7 +94,10 @@ export default function Home() {
   useEffect(() => {
     if (activeSession) {
       setMessages(activeSession.messages);
-      setLanguage(activeSession.language);
+      // Only restore session language if the session was actually used
+      if (activeSession.messages.length > 0) {
+        setLanguage(activeSession.language);
+      }
       setExpandedMeta(new Set());
     }
   }, [activeSessionId]); // eslint-disable-line react-hooks/exhaustive-deps
