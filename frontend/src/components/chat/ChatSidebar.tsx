@@ -54,9 +54,9 @@ export default function ChatSidebar({
         </button>
       </div>
 
-      {/* Session list */}
+      {/* Session list — only show sessions that have messages */}
       <div className="flex-1 overflow-y-auto p-2 space-y-1">
-        {sessions.map((session) => (
+        {sessions.filter((s) => s.messages.length > 0).map((session) => (
           <div
             key={session.id}
             onClick={() => onSwitchSession(session.id)}
