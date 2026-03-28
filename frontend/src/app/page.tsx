@@ -72,7 +72,16 @@ export default function Home() {
   } = useChatSessions();
 
   const [query, setQuery] = useState("");
-  const [language, setLanguage] = useState("hi-IN");
+  const [language, _setLanguage] = useState(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("kisan-ai-language") || "hi-IN";
+    }
+    return "hi-IN";
+  });
+  const setLanguage = (lang: string) => {
+    _setLanguage(lang);
+    localStorage.setItem("kisan-ai-language", lang);
+  };
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadingText, setLoadingText] = useState("");
