@@ -27,7 +27,14 @@ const ACTIVE_KEY = "kisan-ai-active-session";
 const MAX_TITLE_LENGTH = 40;
 
 function generateId(): string {
-  return crypto.randomUUID();
+  if (typeof crypto !== "undefined" && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  // Fallback for non-secure contexts (HTTP)
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    return (c === "x" ? r : (r & 0x3) | 0x8).toString(16);
+  });
 }
 
 function generateTitle(messages: Message[]): string {
