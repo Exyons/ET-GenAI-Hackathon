@@ -233,7 +233,7 @@ def text_to_speech(text: str, lang: str) -> Dict[str, Any]:
         # Remove any remaining HTML-like tags
         clean_text = re.sub(r"<[^>]+>", "", clean_text).strip()
         # Strip markdown formatting so TTS doesn't pronounce asterisks etc.
-        clean_text = re.sub(r"\*{1,3}(.+?)\*{1,3}", r"\1", clean_text)  # bold/italic
+        clean_text = re.sub(r"\*+", "", clean_text)  # remove all asterisks (bold/italic markers)
         clean_text = re.sub(r"#{1,6}\s*", "", clean_text)  # headings
         clean_text = re.sub(r"^\s*[-*+]\s+", "", clean_text, flags=re.MULTILINE)  # list bullets
         clean_text = re.sub(r"^\s*\d+\.\s+", "", clean_text, flags=re.MULTILINE)  # numbered lists
