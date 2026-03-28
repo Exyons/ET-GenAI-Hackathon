@@ -1,4 +1,4 @@
-FROM oven/bun:1
+FROM oven/bun:1 AS builder
 
 WORKDIR /app
 
@@ -8,12 +8,23 @@ COPY package.json bun.lock ./
 # Install dependencies
 RUN bun install --frozen-lockfile
 
-# Copy the rest of the project
+# Copy source and build
 COPY . .
-
-# Build the Next.js app
 RUN bun run build
+
+# --- Production image ---
+FROM oven/bun:1-slim
+
+WORKDIR /app
+
+# Copy standalone output
+COPY --from=builder /app/.next/standalone ./
+COPY --from=builder /app/.next/static ./.next/static
+COPY --from=builder /app/public ./public
 
 EXPOSE 3000
 
-CMD ["bun", "run", "start"]
+ENV HOSTNAME="0.0.0.0"
+ENV PORT=3000
+
+CMD ["bun", "run", "server.js"]
