@@ -1,10 +1,15 @@
-"""Twilio SMS handler — receives farmer SMS, runs pipeline, replies."""
+"""SMS handler — textbee.dev (primary) + Twilio (fallback).
+
+textbee.dev uses your own Android phone as the SMS gateway.
+Twilio is used as a fallback when textbee is not configured.
+"""
 
 import os
 import re
+import hmac
+import hashlib
+import httpx
 from typing import Optional, Tuple
-from twilio.rest import Client as TwilioClient
-from twilio.request_validator import RequestValidator
 
 from .agent import (
     translate_to_english,
@@ -14,13 +19,18 @@ from .agent import (
     build_draft_prompt,
     clean_think_tags,
     debug_log,
-    get_lang_info,
     ollama_client,
     OLLAMA_MODEL,
 )
 from .farmer_db import get_or_create_farmer, update_language, log_message
 
-# Twilio config
+# ---------- TextBee config ----------
+TEXTBEE_API_KEY = os.environ.get("TEXTBEE_API_KEY", "")
+TEXTBEE_DEVICE_ID = os.environ.get("TEXTBEE_DEVICE_ID", "")
+TEXTBEE_WEBHOOK_SECRET = os.environ.get("TEXTBEE_WEBHOOK_SECRET", "")
+TEXTBEE_BASE_URL = "https://api.textbee.dev/api/v1"
+
+# ---------- Twilio config (fallback) ----------
 TWILIO_ACCOUNT_SID = os.environ.get("TWILIO_ACCOUNT_SID", "")
 TWILIO_AUTH_TOKEN = os.environ.get("TWILIO_AUTH_TOKEN", "")
 TWILIO_PHONE_NUMBER = os.environ.get("TWILIO_PHONE_NUMBER", "")
@@ -28,18 +38,25 @@ TWILIO_PHONE_NUMBER = os.environ.get("TWILIO_PHONE_NUMBER", "")
 _twilio_client = None
 
 
-def _get_twilio() -> Optional[TwilioClient]:
+def _get_twilio():
     global _twilio_client
     if _twilio_client is None and TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN:
+        from twilio.rest import Client as TwilioClient
         _twilio_client = TwilioClient(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
     return _twilio_client
 
 
+def textbee_available() -> bool:
+    return bool(TEXTBEE_API_KEY and TEXTBEE_DEVICE_ID)
+
+
+def twilio_available() -> bool:
+    return bool(TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN and TWILIO_PHONE_NUMBER)
+
+
 # --------------- Command Parsing ---------------
 
-# Language switch commands (case-insensitive)
 LANG_COMMANDS = {
-    # English commands
     "lang hi": "hi", "lang hindi": "hi",
     "lang en": "en", "lang english": "en",
     "lang mr": "mr", "lang marathi": "mr",
@@ -49,12 +66,9 @@ LANG_COMMANDS = {
     "lang kn": "kn", "lang kannada": "kn",
     "lang gu": "gu", "lang gujarati": "gu",
     "lang pa": "pa", "lang punjabi": "pa",
-    # Hindi commands
     "भाषा हिंदी": "hi", "भाषा अंग्रेजी": "en",
     "भाषा मराठी": "mr", "भाषा तेलुगु": "te",
-    # Marathi commands
-    "भाषा हिंदी": "hi", "भाषा इंग्रजी": "en",
-    # Telugu commands
+    "भाषा इंग्रजी": "en",
     "భాష హిందీ": "hi", "భాష ఆంగ్లం": "en",
     "భాష తెలుగు": "te", "భాష మరాఠీ": "mr",
 }
@@ -94,11 +108,9 @@ def parse_command(text: str) -> Tuple[Optional[str], Optional[str]]:
     """Parse SMS text for commands. Returns (command_type, value) or (None, None)."""
     clean = text.strip().lower()
 
-    # Check help
     if clean in HELP_COMMANDS:
         return "help", None
 
-    # Check language switch
     for cmd, lang in LANG_COMMANDS.items():
         if clean == cmd.lower():
             return "lang", lang
@@ -112,27 +124,28 @@ def run_pipeline_sync(query: str, language: str) -> str:
     """Run the full pipeline synchronously. Returns translated response text."""
     debug_log("SMS_PIPELINE_START", {"query": query, "language": language})
 
-    # 1. Translate to English
     translation = translate_to_english(query, language)
     eng_query = translation["translated_query"]
 
-    # 2. Intent check
     intent = check_intent_helper(eng_query)
     if not intent["is_agricultural"]:
         reject_en = "I am an agricultural assistant. I can only help with farming, crops, and agriculture-related questions."
         return translate_from_english(reject_en, language)["translated_text"]
 
-    # 3. RAG
     rag = fetch_rag_context_helper(eng_query)
 
-    # 4. Generate (non-streaming)
     prompt = build_draft_prompt(rag["documents"], eng_query)
     response = ollama_client.chat(
         model=OLLAMA_MODEL, messages=[{"role": "user", "content": prompt}]
     )
     english_response = clean_think_tags(response.get("message", {}).get("content", ""))
 
-    # 5. Translate back
+    # Strip markdown for SMS (plain text channel)
+    english_response = re.sub(r"\*+", "", english_response)
+    english_response = re.sub(r"#{1,6}\s*", "", english_response)
+    english_response = re.sub(r"`{1,3}(.+?)`{1,3}", r"\1", english_response)
+    english_response = re.sub(r"\[(.+?)\]\(.+?\)", r"\1", english_response)
+
     output = translate_from_english(english_response, language)
     debug_log("SMS_PIPELINE_DONE", {
         "english_response_preview": english_response[:200],
@@ -141,44 +154,89 @@ def run_pipeline_sync(query: str, language: str) -> str:
     return output["translated_text"]
 
 
-# --------------- SMS Send/Receive ---------------
+# --------------- SMS Send (textbee primary, Twilio fallback) ---------------
 
 def send_sms(to: str, body: str) -> bool:
-    """Send an SMS via Twilio."""
-    client = _get_twilio()
-    if not client:
-        debug_log("SMS_SEND_SKIP", {"reason": "Twilio not configured"})
-        return False
+    """Send SMS — tries textbee first, falls back to Twilio."""
+    # SMS has ~1600 char limit; truncate if needed
+    if len(body) > 1500:
+        body = body[:1497] + "..."
 
+    if textbee_available():
+        ok = _send_via_textbee(to, body)
+        if ok:
+            return True
+        debug_log("SMS_TEXTBEE_FAILED_FALLBACK", {"to": to})
+
+    if twilio_available():
+        return _send_via_twilio(to, body)
+
+    debug_log("SMS_SEND_SKIP", {"reason": "No SMS provider configured"})
+    return False
+
+
+def _send_via_textbee(to: str, body: str) -> bool:
+    """Send SMS via textbee.dev API."""
     try:
-        # SMS has 1600 char limit per message; truncate if needed
-        if len(body) > 1500:
-            body = body[:1497] + "..."
-
-        message = client.messages.create(
-            body=body,
-            from_=TWILIO_PHONE_NUMBER,
-            to=to,
+        url = f"{TEXTBEE_BASE_URL}/gateway/devices/{TEXTBEE_DEVICE_ID}/send-sms"
+        resp = httpx.post(
+            url,
+            json={"recipients": [to], "message": body},
+            headers={
+                "x-api-key": TEXTBEE_API_KEY,
+                "Content-Type": "application/json",
+            },
+            timeout=30,
         )
-        debug_log("SMS_SENT", {"to": to, "sid": message.sid, "body_length": len(body)})
+        resp.raise_for_status()
+        debug_log("SMS_TEXTBEE_SENT", {"to": to, "status": resp.status_code, "body_length": len(body)})
         return True
     except Exception as e:
-        debug_log("SMS_SEND_ERROR", {"to": to, "error": str(e)})
+        debug_log("SMS_TEXTBEE_ERROR", {"to": to, "error": str(e)})
         return False
 
+
+def _send_via_twilio(to: str, body: str) -> bool:
+    """Send SMS via Twilio (fallback)."""
+    client = _get_twilio()
+    if not client:
+        return False
+    try:
+        message = client.messages.create(body=body, from_=TWILIO_PHONE_NUMBER, to=to)
+        debug_log("SMS_TWILIO_SENT", {"to": to, "sid": message.sid, "body_length": len(body)})
+        return True
+    except Exception as e:
+        debug_log("SMS_TWILIO_ERROR", {"to": to, "error": str(e)})
+        return False
+
+
+# --------------- TextBee Webhook Verification ---------------
+
+def verify_textbee_signature(payload_bytes: bytes, signature: str) -> bool:
+    """Verify HMAC-SHA256 signature from textbee webhook."""
+    if not TEXTBEE_WEBHOOK_SECRET:
+        debug_log("TEXTBEE_SIG_SKIP", {"reason": "No webhook secret configured"})
+        return True  # Allow unverified in dev
+
+    expected = hmac.new(
+        TEXTBEE_WEBHOOK_SECRET.encode(),
+        payload_bytes,
+        hashlib.sha256,
+    ).hexdigest()
+    return hmac.compare_digest(expected, signature)
+
+
+# --------------- Incoming SMS Handler ---------------
 
 def handle_incoming_sms(from_phone: str, body: str) -> str:
     """Process an incoming SMS and return the reply text."""
     debug_log("SMS_INCOMING", {"from": from_phone, "body": body})
 
-    # Get or create farmer profile
     farmer = get_or_create_farmer(from_phone, channel="sms")
     lang = farmer["preferred_language"]
 
-    # Log inbound
     log_message(from_phone, "inbound", "sms", body)
 
-    # Check for commands
     cmd_type, cmd_value = parse_command(body)
 
     if cmd_type == "help":
@@ -188,8 +246,6 @@ def handle_incoming_sms(from_phone: str, body: str) -> str:
 
     if cmd_type == "lang" and cmd_value:
         lang_name = update_language(from_phone, cmd_value)
-        lang_info = get_lang_info(cmd_value)
-        # Respond in the NEW language
         confirm_msgs = {
             "hi": f"भाषा {lang_name} में बदल दी गई है।",
             "en": f"Language changed to {lang_name}.",
@@ -200,7 +256,6 @@ def handle_incoming_sms(from_phone: str, body: str) -> str:
         log_message(from_phone, "outbound", "sms", "", response_text=reply)
         return reply
 
-    # Normal query — run pipeline
     try:
         reply = run_pipeline_sync(body, lang)
     except Exception as e:

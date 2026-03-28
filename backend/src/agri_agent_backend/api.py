@@ -23,7 +23,7 @@ from .agent import (
     OLLAMA_MODEL,
     DEBUG_MODE,
 )
-from .sms import handle_incoming_sms, send_sms
+from .sms import handle_incoming_sms, send_sms, verify_textbee_signature, textbee_available, twilio_available
 from .whatsapp import (
     parse_webhook_payload,
     handle_whatsapp_message,
@@ -354,11 +354,41 @@ async def transcribe_endpoint(
     return {"text": result["text"], "language_detected": result["language_detected"]}
 
 
-# --------------- SMS (Twilio) ---------------
+# --------------- SMS ---------------
 
-@app.post("/api/sms/webhook")
-async def sms_webhook(request: Request):
-    """Twilio SMS webhook — receives incoming SMS, replies via Twilio."""
+@app.post("/api/sms/textbee/webhook")
+async def textbee_webhook(request: Request):
+    """TextBee webhook — receives incoming SMS from Android gateway."""
+    raw_body = await request.body()
+    signature = request.headers.get("X-Signature", "")
+
+    if not verify_textbee_signature(raw_body, signature):
+        debug_log("TEXTBEE_WEBHOOK_REJECT", {"reason": "Invalid signature"})
+        raise HTTPException(status_code=401, detail="Invalid signature")
+
+    payload = await request.json()
+    event = payload.get("webhookEvent", "")
+
+    if event != "MESSAGE_RECEIVED":
+        return {"status": "ignored", "event": event}
+
+    from_phone = payload.get("sender", "")
+    body = payload.get("message", "")
+
+    if not from_phone or not body:
+        return {"status": "ok"}
+
+    debug_log("TEXTBEE_WEBHOOK", {"from": from_phone, "body": body[:100], "event": event})
+
+    reply = handle_incoming_sms(from_phone, body)
+    send_sms(from_phone, reply)
+
+    return {"status": "ok"}
+
+
+@app.post("/api/sms/twilio/webhook")
+async def twilio_webhook(request: Request):
+    """Twilio SMS webhook (fallback) — receives incoming SMS, replies via Twilio."""
     form = await request.form()
     from_phone = form.get("From", "")
     body = form.get("Body", "")
@@ -366,19 +396,25 @@ async def sms_webhook(request: Request):
     if not from_phone or not body:
         return PlainTextResponse("OK")
 
-    debug_log("SMS_WEBHOOK", {"from": from_phone, "body": body[:100]})
+    debug_log("TWILIO_WEBHOOK", {"from": from_phone, "body": body[:100]})
 
-    # Process and get reply
     reply = handle_incoming_sms(from_phone, body)
-
-    # Send reply via Twilio
     send_sms(from_phone, reply)
 
-    # Return TwiML empty response (we send via API, not TwiML)
     return PlainTextResponse(
         '<?xml version="1.0" encoding="UTF-8"?><Response></Response>',
         media_type="application/xml",
     )
+
+
+@app.get("/api/sms/status")
+async def sms_status():
+    """Check which SMS providers are configured."""
+    return {
+        "textbee": textbee_available(),
+        "twilio": twilio_available(),
+        "primary": "textbee" if textbee_available() else "twilio" if twilio_available() else "none",
+    }
 
 
 # --------------- WhatsApp (Meta Cloud API) ---------------
