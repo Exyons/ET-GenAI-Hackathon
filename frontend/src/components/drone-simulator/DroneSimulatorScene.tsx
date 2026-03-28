@@ -155,7 +155,7 @@ export default function DroneSimulatorScene({ language }: DroneSimulatorScenePro
 
         {/* Help popup */}
         {showHelp && (
-          <div className="absolute bottom-14 right-3 bg-black/85 backdrop-blur-sm rounded-lg p-4 text-white text-xs font-mono space-y-2 min-w-[220px] shadow-xl">
+          <div className="absolute bottom-14 right-3 bg-black/85 backdrop-blur-sm rounded-lg p-3 text-white text-xs font-mono space-y-1.5 w-48 shadow-xl">
             <div className="font-bold text-sm mb-2 text-green-400">Viewport Controls</div>
             <div className="flex justify-between gap-4">
               <span className="text-gray-400">Rotate</span>
