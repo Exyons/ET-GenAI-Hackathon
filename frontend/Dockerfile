@@ -3,10 +3,10 @@ FROM oven/bun:1
 WORKDIR /app
 
 # Copy package files
-COPY package.json bun.lockb* ./
+COPY package.json bun.lock ./
 
-# Install dependencies using bun
-RUN bun install
+# Install dependencies
+RUN bun install --frozen-lockfile
 
 # Copy the rest of the project
 COPY . .
@@ -14,5 +14,6 @@ COPY . .
 # Build the Next.js app
 RUN bun run build
 
-# Start the application
+EXPOSE 3000
+
 CMD ["bun", "run", "start"]

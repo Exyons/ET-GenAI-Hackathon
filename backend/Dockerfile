@@ -2,21 +2,22 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install system dependencies for audio processing (ffmpeg) and building
+# System deps for audio (ffmpeg) and building native extensions
 RUN apt-get update && apt-get install -y ffmpeg build-essential curl && rm -rf /var/lib/apt/lists/*
 
-# Install uv for fast dependency resolution
+# Install uv
 RUN curl -LsSf https://astral.sh/uv/install.sh | sh
 ENV PATH="/root/.local/bin:${PATH}"
 
-# Copy the dependency files first to cache the uv install layer
-COPY pyproject.toml uv.lock* ./
+# Copy dependency files first (layer cache)
+COPY pyproject.toml uv.lock ./
 
-# Install dependencies using uv
-RUN uv pip install --system -r pyproject.toml
+# Install dependencies
+RUN uv sync --frozen --no-dev
 
-# Copy the application code
+# Copy application code and data
 COPY . .
 
-# Command to run the application
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+EXPOSE 8000
+
+CMD ["uv", "run", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]

@@ -1,20 +1,24 @@
 services:
   ollama-relay:
-    image: docker.io/alpine/socat:latest
-    restart: unless-stopped
+    image: alpine/socat:latest
     network_mode: host
-    command: TCP-LISTEN:11435,fork,reuseaddr TCP-CONNECT:127.0.0.1:11434
+    restart: unless-stopped
+    command: TCP-LISTEN:11434,fork,bind=0.0.0.0 TCP-CONNECT:127.0.0.1:11434
+    extra_hosts:
+      - host.docker.internal:host-gateway
 
   caddy:
-    image: docker.io/library/caddy:2-alpine
+    image: caddy:2-alpine
     restart: unless-stopped
     ports:
-      - "8080:80"
-      - "8443:443"
+      - "80:80"
+      - "443:443"
     volumes:
-      - ./infrastructure/Caddyfile:/etc/caddy/Caddyfile:z
+      - ./infrastructure/Caddyfile:/etc/caddy/Caddyfile
       - caddy_data:/data
       - caddy_config:/config
+    environment:
+      - DOMAIN=${DOMAIN:-localhost}
     depends_on:
       - backend
       - frontend
@@ -29,11 +33,13 @@ services:
     env_file:
       - ./backend/.env
     environment:
-      - OLLAMA_BASE_URL=http://host.docker.internal:11435
+      - OLLAMA_BASE_URL=http://host.docker.internal:11434
     extra_hosts:
       - host.docker.internal:host-gateway
     volumes:
       - chroma_data:/app/chroma_db
+    depends_on:
+      - ollama-relay
 
   frontend:
     build:
@@ -42,6 +48,8 @@ services:
     restart: unless-stopped
     expose:
       - "3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=https://${DOMAIN:-localhost}/api
     depends_on:
       - backend
 
