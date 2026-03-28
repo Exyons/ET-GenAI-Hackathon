@@ -1,0 +1,255 @@
+"use client";
+
+import { Suspense } from "react";
+import { Canvas } from "@react-three/fiber";
+import { OrbitControls } from "@react-three/drei";
+import { t } from "@/app/i18n";
+import { DEFAULT_FIELD_BOUNDS } from "./types";
+import { useDroneSurveySSE } from "./hooks/useDroneSurveySSE";
+import { useSprayPlan } from "./hooks/useSprayPlan";
+import SkyAndLighting from "./components/SkyAndLighting";
+import Terrain from "./components/Terrain";
+import DroneModel from "./components/DroneModel";
+import FlightPath from "./components/FlightPath";
+import HeatmapOverlay from "./components/HeatmapOverlay";
+import DetectionMarkers from "./components/DetectionMarkers";
+import TelemetryHUD from "./components/TelemetryHUD";
+import SprayEffect from "./components/SprayEffect";
+import PostProcessing from "./components/PostProcessing";
+
+interface DroneSimulatorSceneProps {
+  language: string;
+}
+
+function LoadingFallback() {
+  return (
+    <mesh>
+      <boxGeometry args={[1, 1, 1]} />
+      <meshStandardMaterial color="#4a7c3f" />
+    </mesh>
+  );
+}
+
+export default function DroneSimulatorScene({ language }: DroneSimulatorSceneProps) {
+  const {
+    status,
+    telemetry,
+    prevTelemetry,
+    detections,
+    missionStart,
+    missionComplete,
+    running,
+    startSurvey,
+    reset,
+  } = useDroneSurveySSE();
+
+  const { sprayPlan, loading: sprayLoading, requestSprayPlan, resetSprayPlan } = useSprayPlan();
+
+  const bounds = DEFAULT_FIELD_BOUNDS;
+  const currentWaypoint = telemetry?.waypoint || 0;
+  const altitude = telemetry?.altitude_m || 50;
+
+  const severityColor = (sev: string) => {
+    switch (sev) {
+      case "healthy": return "bg-green-100 text-green-800 border-green-300";
+      case "mild": return "bg-yellow-100 text-yellow-800 border-yellow-300";
+      case "moderate": return "bg-orange-100 text-orange-800 border-orange-300";
+      case "severe": return "bg-red-100 text-red-800 border-red-300";
+      default: return "bg-gray-100 text-gray-800 border-gray-300";
+    }
+  };
+
+  const handleStartSurvey = () => {
+    resetSprayPlan();
+    startSurvey();
+  };
+
+  const handleReset = () => {
+    reset();
+    resetSprayPlan();
+  };
+
+  return (
+    <div className="bg-white p-4 md:p-6 rounded-lg shadow-md w-full mx-auto max-w-4xl">
+      <h2 className="text-xl font-bold text-green-800 mb-4 flex items-center gap-2">
+        <DroneIcon /> {t(language, "drone_title")}
+      </h2>
+
+      {/* Control bar */}
+      <div className="flex gap-2 mb-4">
+        <button
+          onClick={handleStartSurvey}
+          disabled={running}
+          className="flex-1 bg-green-600 text-white py-3 rounded font-bold hover:bg-green-700 disabled:opacity-50 transition-colors"
+        >
+          {running ? t(language, "drone_scanning") : t(language, "drone_start")}
+        </button>
+        {status === "complete" && (
+          <button
+            onClick={handleReset}
+            className="px-4 bg-gray-200 text-gray-700 py-3 rounded font-bold hover:bg-gray-300 transition-colors"
+          >
+            Reset
+          </button>
+        )}
+      </div>
+
+      {/* 3D Viewport */}
+      <div className="relative w-full rounded-lg overflow-hidden border border-gray-200 bg-gray-900" style={{ height: "500px" }}>
+        <Canvas
+          shadows
+          camera={{ position: [60, 55, 60], fov: 45 }}
+          gl={{ antialias: true, alpha: false }}
+          dpr={[1, 2]}
+        >
+          <Suspense fallback={<LoadingFallback />}>
+            <SkyAndLighting />
+            <Terrain bounds={bounds} />
+            <FlightPath bounds={bounds} currentWaypoint={currentWaypoint} altitude={altitude} />
+            <HeatmapOverlay detections={detections} bounds={bounds} />
+            <DetectionMarkers detections={detections} bounds={bounds} />
+            <DroneModel
+              telemetry={telemetry}
+              prevTelemetry={prevTelemetry}
+              bounds={bounds}
+              status={status}
+            />
+            {sprayPlan && sprayPlan.status === "spray_plan_ready" && (
+              <SprayEffect sprayPlan={sprayPlan} detections={detections} bounds={bounds} />
+            )}
+            <PostProcessing />
+          </Suspense>
+          <OrbitControls
+            makeDefault
+            enableDamping
+            dampingFactor={0.1}
+            minDistance={20}
+            maxDistance={200}
+            maxPolarAngle={Math.PI / 2.1}
+          />
+        </Canvas>
+
+        {/* HTML HUD overlay */}
+        <TelemetryHUD
+          telemetry={telemetry}
+          status={status}
+          missionComplete={missionComplete}
+        />
+      </div>
+
+      {/* Live Detection Feed (during survey) */}
+      {detections.length > 0 && status === "surveying" && (
+        <div className="mt-4 space-y-2 max-h-40 overflow-y-auto">
+          <h3 className="text-sm font-bold text-gray-700">Live Detections</h3>
+          {detections.slice(-4).map((det, i) => (
+            <div key={i} className={`p-2 rounded border text-sm ${severityColor(det.severity)}`}>
+              <div className="flex justify-between items-center">
+                <span className="font-bold">{t(language, "drone_zone")} {det.zone}</span>
+                <span className="font-mono text-xs">{Math.round(det.confidence * 100)}%</span>
+              </div>
+              <div className="text-xs mt-1">{det.condition.replace(/_/g, " ")}</div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Mission Report */}
+      {missionComplete && (
+        <div className="mt-4 border border-gray-200 rounded-lg overflow-hidden">
+          <div className={`p-3 font-bold text-center ${
+            missionComplete.overall_health === "healthy"
+              ? "bg-green-100 text-green-800"
+              : missionComplete.overall_health === "critical"
+                ? "bg-red-100 text-red-800"
+                : "bg-yellow-100 text-yellow-800"
+          }`}>
+            {t(language, "drone_complete")} &mdash; {t(language,
+              missionComplete.overall_health === "healthy" ? "drone_healthy"
+                : missionComplete.overall_health === "critical" ? "drone_critical"
+                  : "drone_warning"
+            )}
+          </div>
+
+          <div className="p-3 text-sm grid grid-cols-2 md:grid-cols-4 gap-2 bg-gray-50">
+            <div><span className="text-gray-500">{t(language, "drone_field_area")}:</span> <span className="font-bold">{missionComplete.area_covered_hectares} ha</span></div>
+            <div><span className="text-gray-500">{t(language, "drone_waypoint")}:</span> <span className="font-bold">{missionComplete.waypoints_surveyed}</span></div>
+            <div><span className="text-gray-500">{t(language, "drone_battery")}:</span> <span className="font-bold">{missionComplete.battery_remaining_pct}%</span></div>
+            <div><span className="text-gray-500">Time:</span> <span className="font-bold">{missionComplete.total_time_s}s</span></div>
+          </div>
+
+          {/* Zone Grid */}
+          <div className="p-3">
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+              {missionComplete.zone_summaries?.map((z, i) => (
+                <div key={i} className={`p-2 rounded border text-xs ${severityColor(z.status)}`}>
+                  <div className="font-bold">{t(language, "drone_zone")} {z.zone}</div>
+                  <div className="mt-1">{z.condition ? z.condition.replace(/_/g, " ") : t(language, "drone_healthy")}</div>
+                  {z.confidence && <div className="font-mono">{Math.round(z.confidence * 100)}%</div>}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Issues */}
+          {missionComplete.issues?.length > 0 && (
+            <div className="p-3 border-t border-gray-200">
+              <h3 className="font-bold text-sm mb-2">Issues Found ({missionComplete.issues_count})</h3>
+              {missionComplete.issues.map((issue, i) => (
+                <div key={i} className="mb-2 p-2 bg-red-50 border border-red-200 rounded text-sm">
+                  <div className="font-bold">{t(language, "drone_zone")} {issue.zone}: {issue.condition.replace(/_/g, " ")} ({issue.severity})</div>
+                  <div className="text-xs text-gray-700 mt-1">{issue.recommendation}</div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {missionComplete.issues_count === 0 && (
+            <div className="p-3 text-center text-green-700 font-bold">{t(language, "drone_no_issues")}</div>
+          )}
+
+          {/* Spray Plan Button */}
+          {missionComplete.issues_count > 0 && !sprayPlan && (
+            <div className="p-3 border-t border-gray-200">
+              <button
+                onClick={() => requestSprayPlan(detections)}
+                disabled={sprayLoading}
+                className="w-full bg-orange-500 text-white py-2 rounded font-bold hover:bg-orange-600 disabled:opacity-50 transition-colors"
+              >
+                {sprayLoading ? "Generating..." : t(language, "drone_spray_plan")}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Spray Plan */}
+      {sprayPlan && sprayPlan.status === "spray_plan_ready" && (
+        <div className="mt-4 border border-orange-200 rounded-lg bg-orange-50 p-3">
+          <h3 className="font-bold text-orange-800 mb-2">{t(language, "drone_spray_plan")}</h3>
+          <div className="text-sm mb-2">
+            <span className="text-gray-600">Affected: </span>
+            <span className="font-bold">{sprayPlan.total_affected_area_hectares} ha</span>
+            <span className="text-gray-600"> / {sprayPlan.total_field_area_hectares} ha total</span>
+            <span className="ml-2 text-green-700 font-bold">({sprayPlan.chemical_savings_pct}% chemical savings)</span>
+          </div>
+          {sprayPlan.missions?.map((m, i) => (
+            <div key={i} className={`p-2 mb-2 rounded border text-sm ${m.priority === "high" ? "bg-red-50 border-red-300" : "bg-yellow-50 border-yellow-300"}`}>
+              <div className="font-bold">{m.condition.replace(/_/g, " ")} &mdash; Zones: {m.zones.join(", ")}</div>
+              <div className="text-xs mt-1">{m.treatment}</div>
+              <div className="text-xs mt-1 text-gray-500">Area: {m.affected_area_hectares} ha | Priority: {m.priority}</div>
+            </div>
+          ))}
+          <div className="text-xs text-gray-500 mt-2 italic">{sprayPlan.note}</div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function DroneIcon() {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M22 10l-6-6H8l-6 6 6 6h8l6-6zM12 14.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5zM3 18h18v2H3v-2z"/>
+    </svg>
+  );
+}
