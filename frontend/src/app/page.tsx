@@ -12,7 +12,7 @@ const DroneSimulatorScene = dynamic(
   { ssr: false, loading: () => <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md w-full mx-auto max-w-4xl min-h-[400px] flex items-center justify-center text-gray-400">Loading 3D simulator...</div> }
 );
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
 
 interface PipelineMetadata {
   translate?: { original_query: string; translated_query: string; was_translated: boolean; source_language: string; duration_ms: number };

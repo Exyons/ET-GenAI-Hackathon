@@ -1,7 +1,7 @@
 import { useState, useCallback } from "react";
 import { DetectionEvent, SprayPlan, DEFAULT_FIELD_BOUNDS } from "../types";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
 
 export function useSprayPlan() {
   const [sprayPlan, setSprayPlan] = useState<SprayPlan | null>(null);
