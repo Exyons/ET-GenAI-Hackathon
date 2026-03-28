@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import dynamic from "next/dynamic";
+import Markdown from "react-markdown";
 import { t, loadingPhrases } from "./i18n";
 import { useChatSessions } from "@/components/chat/useChatSessions";
 import ChatSidebar from "@/components/chat/ChatSidebar";
@@ -427,7 +428,9 @@ export default function Home() {
             <div className="whitespace-pre-wrap opacity-80">{thinkContent}</div>
           </div>
         )}
-        <div className="whitespace-pre-wrap">{mainContent}</div>
+        <div className="prose prose-sm dark:prose-invert max-w-none prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5 prose-headings:my-2">
+          <Markdown>{mainContent}</Markdown>
+        </div>
       </>
     );
   };

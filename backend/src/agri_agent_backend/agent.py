@@ -232,6 +232,13 @@ def text_to_speech(text: str, lang: str) -> Dict[str, Any]:
         clean_text = re.sub(r"<think>.*", "", clean_text, flags=re.DOTALL).strip()
         # Remove any remaining HTML-like tags
         clean_text = re.sub(r"<[^>]+>", "", clean_text).strip()
+        # Strip markdown formatting so TTS doesn't pronounce asterisks etc.
+        clean_text = re.sub(r"\*{1,3}(.+?)\*{1,3}", r"\1", clean_text)  # bold/italic
+        clean_text = re.sub(r"#{1,6}\s*", "", clean_text)  # headings
+        clean_text = re.sub(r"^\s*[-*+]\s+", "", clean_text, flags=re.MULTILINE)  # list bullets
+        clean_text = re.sub(r"^\s*\d+\.\s+", "", clean_text, flags=re.MULTILINE)  # numbered lists
+        clean_text = re.sub(r"`{1,3}(.+?)`{1,3}", r"\1", clean_text)  # inline/block code
+        clean_text = re.sub(r"\[(.+?)\]\(.+?\)", r"\1", clean_text)  # links
         if not clean_text:
             result["error"] = "No text to speak"
             return result
