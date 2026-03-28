@@ -644,52 +644,64 @@ export default function Home() {
             <div ref={chatEndRef} />
           </div>
 
-          {imageFile && (
-            <div className="mb-2 text-sm text-blue-600 flex justify-between items-center bg-blue-50 p-2 rounded">
-              <span>{imageFile.name}</span>
-              <button onClick={() => { setImageFile(null); if (fileInputRef.current) fileInputRef.current.value = ""; }} className="text-red-500 font-bold hover:text-red-700">X</button>
-            </div>
-          )}
+          <form onSubmit={handleAsk} className="border border-green-300 rounded-xl overflow-hidden focus-within:ring-2 focus-within:ring-green-500 focus-within:border-green-500 transition-all">
+            {/* Image file preview */}
+            {imageFile && (
+              <div className="text-sm text-blue-600 flex justify-between items-center bg-blue-50 px-3 py-1.5 border-b border-green-200">
+                <span className="truncate">{imageFile.name}</span>
+                <button type="button" onClick={() => { setImageFile(null); if (fileInputRef.current) fileInputRef.current.value = ""; }} className="text-red-500 font-bold hover:text-red-700 ml-2">X</button>
+              </div>
+            )}
 
-          <form onSubmit={handleAsk} className="flex gap-2 items-center">
-            <button
-              type="button"
-              onMouseDown={startRecording}
-              onMouseUp={stopRecording}
-              onMouseLeave={() => { if (isRecording) stopRecording(); }}
-              onTouchStart={startRecording}
-              onTouchEnd={stopRecording}
-              className={`p-3 rounded-full text-white transition-colors ${isRecording ? "bg-red-500 animate-pulse" : "bg-blue-500 hover:bg-blue-600"}`}
-              title={t(language, "hold_to_record")}
-            >
-              <MicIcon />
-            </button>
-
-            <input type="file" accept="image/*" ref={fileInputRef} onChange={handleFileChange} className="hidden" />
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              className="p-3 rounded-full bg-gray-200 text-gray-700 hover:bg-gray-300 transition-colors"
-              title={t(language, "attach_image")}
-            >
-              <ImageIcon />
-            </button>
-
+            {/* Text input */}
             <input
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder={isRecording ? t(language, "recording") : t(language, "placeholder")}
-              className="flex-grow p-3 border border-green-300 rounded text-black focus:outline-none focus:ring-2 focus:ring-green-500"
+              className="w-full px-3 py-3 text-black bg-transparent focus:outline-none text-sm"
               disabled={loading}
             />
-            <button
-              type="submit"
-              className="bg-green-600 text-white px-4 py-3 md:px-6 rounded font-bold hover:bg-green-700 disabled:opacity-50 transition-colors"
-              disabled={loading || (!query.trim() && !imageFile)}
-            >
-              {t(language, "ask_button")}
-            </button>
+
+            {/* Action buttons row */}
+            <div className="flex items-center gap-1 px-2 py-1.5 bg-gray-50 border-t border-green-100">
+              <button
+                type="button"
+                onMouseDown={startRecording}
+                onMouseUp={stopRecording}
+                onMouseLeave={() => { if (isRecording) stopRecording(); }}
+                onTouchStart={startRecording}
+                onTouchEnd={stopRecording}
+                className={`p-2 rounded-full transition-colors ${isRecording ? "bg-red-500 text-white animate-pulse" : "text-gray-500 hover:bg-gray-200"}`}
+                title={t(language, "hold_to_record")}
+              >
+                <MicIcon />
+              </button>
+
+              <input type="file" accept="image/*" ref={fileInputRef} onChange={handleFileChange} className="hidden" />
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="p-2 rounded-full text-gray-500 hover:bg-gray-200 transition-colors"
+                title={t(language, "attach_image")}
+              >
+                <ImageIcon />
+              </button>
+
+              <div className="flex-grow" />
+
+              {/* Send button — round arrow */}
+              <button
+                type="submit"
+                className="p-2 rounded-full bg-green-600 text-white hover:bg-green-700 disabled:opacity-30 disabled:hover:bg-green-600 transition-colors"
+                disabled={loading || (!query.trim() && !imageFile)}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="5" y1="12" x2="19" y2="12" />
+                  <polyline points="12 5 19 12 12 19" />
+                </svg>
+              </button>
+            </div>
           </form>
         </div>
         </div>
