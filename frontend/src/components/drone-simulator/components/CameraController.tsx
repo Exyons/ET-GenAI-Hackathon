@@ -16,7 +16,7 @@ interface CameraControllerProps {
 // [x, y, z] — y is height, x/z are horizontal offset from drone
 const IDLE_OFFSET = new THREE.Vector3(8, 6, 8);       // Close-up on parked drone
 const SURVEY_OFFSET = new THREE.Vector3(30, 35, 30);   // Pulled back overhead during survey
-const COMPLETE_OFFSET = new THREE.Vector3(50, 40, 50);  // Wide view after mission
+const COMPLETE_OFFSET = new THREE.Vector3(30, 30, 30);  // Wide view after mission
 
 export default function CameraController({ telemetry, bounds, status }: CameraControllerProps) {
   const { camera, controls } = useThree();
