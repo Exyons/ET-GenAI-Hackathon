@@ -8,7 +8,7 @@ import ChatSidebar from "@/components/chat/ChatSidebar";
 
 const DroneSimulatorScene = dynamic(
   () => import("@/components/drone-simulator/DroneSimulatorScene"),
-  { ssr: false, loading: () => <div className="bg-white p-6 rounded-lg shadow-md w-full mx-auto max-w-4xl min-h-[400px] flex items-center justify-center text-gray-400">Loading 3D simulator...</div> }
+  { ssr: false, loading: () => <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md w-full mx-auto max-w-4xl min-h-[400px] flex items-center justify-center text-gray-400">Loading 3D simulator...</div> }
 );
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
@@ -82,6 +82,17 @@ export default function Home() {
     _setLanguage(lang);
     localStorage.setItem("kisan-ai-language", lang);
   };
+  const [darkMode, setDarkMode] = useState(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("kisan-ai-theme") === "dark";
+    }
+    return false;
+  });
+  useEffect(() => {
+    document.documentElement.classList.toggle("dark", darkMode);
+    localStorage.setItem("kisan-ai-theme", darkMode ? "dark" : "light");
+  }, [darkMode]);
+
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadingText, setLoadingText] = useState("");
@@ -411,7 +422,7 @@ export default function Home() {
     return (
       <>
         {hasThink && (
-          <div className="bg-gray-200 p-3 rounded-md mb-3 text-sm text-gray-700 border border-gray-300">
+          <div className="bg-gray-200 dark:bg-gray-700 p-3 rounded-md mb-3 text-sm text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600">
             <span className="font-bold flex items-center gap-2 mb-1">{t(language, "thinking")}</span>
             <div className="whitespace-pre-wrap opacity-80">{thinkContent}</div>
           </div>
@@ -426,19 +437,19 @@ export default function Home() {
     const color = pct >= 70 ? "bg-green-500" : pct >= 40 ? "bg-yellow-500" : "bg-red-500";
     return (
       <div className="flex items-center gap-2 text-xs">
-        <div className="w-24 bg-gray-200 rounded-full h-2">
+        <div className="w-24 bg-gray-200 dark:bg-gray-600 rounded-full h-2">
           <div className={`${color} h-2 rounded-full`} style={{ width: `${pct}%` }} />
         </div>
-        <span className="text-gray-600">{pct}%</span>
+        <span className="text-gray-600 dark:text-gray-400">{pct}%</span>
       </div>
     );
   };
 
   const renderMetadata = (meta: PipelineMetadata) => (
-    <div className="text-xs space-y-2 text-gray-600">
+    <div className="text-xs space-y-2 text-gray-600 dark:text-gray-400">
       {meta.translate && (
         <div>
-          <span className="font-semibold text-gray-700">{t(language, "translation_input")}</span>
+          <span className="font-semibold text-gray-700 dark:text-gray-300">{t(language, "translation_input")}</span>
           {meta.translate.was_translated ? (
             <span className="ml-2 text-blue-600">{meta.translate.source_language} &rarr; English ({meta.translate.duration_ms}ms)</span>
           ) : (
@@ -452,7 +463,7 @@ export default function Home() {
 
       {meta.intent && (
         <div>
-          <span className="font-semibold text-gray-700">{t(language, "intent")}</span>
+          <span className="font-semibold text-gray-700 dark:text-gray-300">{t(language, "intent")}</span>
           <span className={`ml-2 font-mono ${meta.intent.is_agricultural ? "text-green-600" : "text-red-600"}`}>
             {meta.intent.is_agricultural ? t(language, "agricultural") : t(language, "rejected")}
           </span>
@@ -462,7 +473,7 @@ export default function Home() {
 
       {meta.vision_validate && (
         <div>
-          <span className="font-semibold text-gray-700">{t(language, "image_validation")}</span>
+          <span className="font-semibold text-gray-700 dark:text-gray-300">{t(language, "image_validation")}</span>
           <span className={`ml-2 font-mono ${meta.vision_validate.is_farm_image ? "text-green-600" : "text-red-600"}`}>
             {meta.vision_validate.is_farm_image ? t(language, "farm_image") : t(language, "not_farm")}
           </span>
@@ -473,18 +484,18 @@ export default function Home() {
 
       {meta.vision && (
         <div>
-          <span className="font-semibold text-gray-700">{t(language, "vision_analysis")}</span>
+          <span className="font-semibold text-gray-700 dark:text-gray-300">{t(language, "vision_analysis")}</span>
           <span className="ml-2 text-gray-500">{meta.vision.model} | {meta.vision.image_size_kb}KB | {meta.vision.duration_ms}ms</span>
           {meta.vision.error && <div className="ml-2 text-red-500">Error: {meta.vision.error}</div>}
           {meta.vision.symptoms_detected && !meta.vision.error && (
-            <div className="ml-2 mt-1 p-2 bg-amber-50 border border-amber-200 rounded text-gray-700">{meta.vision.symptoms_detected}</div>
+            <div className="ml-2 mt-1 p-2 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-700 rounded text-gray-700 dark:text-gray-300">{meta.vision.symptoms_detected}</div>
           )}
         </div>
       )}
 
       {meta.rag && (
         <div>
-          <span className="font-semibold text-gray-700">{t(language, "rag_context")}</span>
+          <span className="font-semibold text-gray-700 dark:text-gray-300">{t(language, "rag_context")}</span>
           <span className="ml-2 text-gray-500">{meta.rag.num_documents} docs | {meta.rag.duration_ms}ms</span>
           {meta.rag.scores && meta.rag.scores.length > 0 && (
             <div className="ml-2 mt-1 space-y-1">
@@ -503,12 +514,12 @@ export default function Home() {
 
       {meta.generate && (
         <div>
-          <span className="font-semibold text-gray-700">{t(language, "generation")}</span>
+          <span className="font-semibold text-gray-700 dark:text-gray-300">{t(language, "generation")}</span>
           <span className="ml-2 text-gray-500">{meta.generate.model} | {meta.generate.chunks_streamed} chunks | {meta.generate.generation_duration_ms}ms</span>
           {meta.generate.english_response && (
             <details className="ml-2 mt-1">
               <summary className="text-gray-400 cursor-pointer">{t(language, "english_response")}</summary>
-              <div className="mt-1 p-2 bg-blue-50 border border-blue-200 rounded text-gray-700">{meta.generate.english_response}</div>
+              <div className="mt-1 p-2 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded text-gray-700 dark:text-gray-300">{meta.generate.english_response}</div>
             </details>
           )}
         </div>
@@ -516,7 +527,7 @@ export default function Home() {
 
       {meta.translate_response && (
         <div>
-          <span className="font-semibold text-gray-700">{t(language, "translation_output")}</span>
+          <span className="font-semibold text-gray-700 dark:text-gray-300">{t(language, "translation_output")}</span>
           {meta.translate_response.was_translated ? (
             <span className="ml-2 text-blue-600">English &rarr; {meta.translate_response.target_language} ({meta.translate_response.duration_ms}ms)</span>
           ) : (
@@ -527,15 +538,15 @@ export default function Home() {
 
       {meta.tts && (
         <div>
-          <span className="font-semibold text-gray-700">{t(language, "tts_audio")}</span>
+          <span className="font-semibold text-gray-700 dark:text-gray-300">{t(language, "tts_audio")}</span>
           <span className="ml-2 text-gray-500">{meta.tts.duration_ms}ms</span>
           {meta.tts.error && <span className="ml-2 text-red-500">{meta.tts.error}</span>}
         </div>
       )}
 
       {meta.total_duration_ms != null && (
-        <div className="pt-1 border-t border-gray-200">
-          <span className="font-semibold text-gray-700">{t(language, "total_pipeline")}</span>
+        <div className="pt-1 border-t border-gray-200 dark:border-gray-600">
+          <span className="font-semibold text-gray-700 dark:text-gray-300">{t(language, "total_pipeline")}</span>
           <span className="ml-2 text-gray-500">{meta.total_duration_ms}ms</span>
         </div>
       )}
@@ -543,7 +554,7 @@ export default function Home() {
   );
 
   return (
-    <div className="flex min-h-screen bg-green-50 text-gray-800">
+    <div className="flex min-h-screen bg-green-50 dark:bg-[#0f1a0f] text-gray-800 dark:text-gray-200">
       <ChatSidebar
         sessions={sessions}
         activeSessionId={activeSessionId}
@@ -554,15 +565,40 @@ export default function Home() {
       />
 
       <main className="flex-1 flex flex-col items-center p-4 md:p-8 overflow-y-auto">
-        <div className="z-10 w-full max-w-5xl font-mono text-sm">
-          <h1 className="text-3xl md:text-4xl font-bold text-center text-green-800 mb-8">{t(language, "title")}</h1>
+        <div className="z-10 w-full max-w-5xl text-sm">
+          {/* Header with title and dark mode toggle */}
+          <div className="flex items-center justify-between mb-8">
+            <div className="flex-1" />
+            <h1 className="text-3xl md:text-4xl font-bold text-center text-green-800 dark:text-green-400">{t(language, "title")}</h1>
+            <div className="flex-1 flex justify-end">
+              <button
+                onClick={() => setDarkMode((v) => !v)}
+                className="p-2 rounded-full bg-white dark:bg-gray-800 shadow-md hover:shadow-lg transition-all border border-gray-200 dark:border-gray-600"
+                title={darkMode ? "Light mode" : "Dark mode"}
+              >
+                {darkMode ? (
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-yellow-400">
+                    <circle cx="12" cy="12" r="5" />
+                    <line x1="12" y1="1" x2="12" y2="3" /><line x1="12" y1="21" x2="12" y2="23" />
+                    <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" /><line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+                    <line x1="1" y1="12" x2="3" y2="12" /><line x1="21" y1="12" x2="23" y2="12" />
+                    <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" /><line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+                  </svg>
+                ) : (
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-600">
+                    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+                  </svg>
+                )}
+              </button>
+            </div>
+          </div>
 
-          <div className="bg-white p-4 md:p-6 rounded-lg shadow-md mb-6 w-full mx-auto max-w-2xl">
+          <div className="bg-white dark:bg-gray-800 p-4 md:p-6 rounded-lg shadow-md mb-6 w-full mx-auto max-w-2xl">
           <label className="block mb-2 font-bold">{t(language, "language_label")}</label>
           <select
             value={language}
             onChange={(e) => setLanguage(e.target.value)}
-            className="w-full p-2 border border-green-300 rounded text-black bg-white"
+            className="w-full p-2 border border-green-300 dark:border-gray-600 rounded text-black dark:text-gray-200 bg-white dark:bg-gray-700"
           >
             <option value="en-IN">English</option>
             <option value="hi-IN">हिंदी (Hindi)</option>
@@ -575,13 +611,13 @@ export default function Home() {
         <div className="flex gap-2 mb-4 mx-auto max-w-2xl">
           <button
             onClick={() => setActiveTab("chat")}
-            className={`flex-1 py-2 px-4 rounded-t-lg font-bold text-sm transition-colors ${activeTab === "chat" ? "bg-white text-green-800 shadow-md" : "bg-green-200 text-green-700 hover:bg-green-100"}`}
+            className={`flex-1 py-2 px-4 rounded-t-lg font-bold text-sm transition-colors ${activeTab === "chat" ? "bg-white dark:bg-gray-800 text-green-800 dark:text-green-400 shadow-md" : "bg-green-200 dark:bg-gray-700 text-green-700 dark:text-green-300 hover:bg-green-100 dark:hover:bg-gray-600"}`}
           >
             {t(language, "tab_chat")}
           </button>
           <button
             onClick={() => setActiveTab("drone")}
-            className={`flex-1 py-2 px-4 rounded-t-lg font-bold text-sm transition-colors flex items-center justify-center gap-2 ${activeTab === "drone" ? "bg-white text-green-800 shadow-md" : "bg-green-200 text-green-700 hover:bg-green-100"}`}
+            className={`flex-1 py-2 px-4 rounded-t-lg font-bold text-sm transition-colors flex items-center justify-center gap-2 ${activeTab === "drone" ? "bg-white dark:bg-gray-800 text-green-800 dark:text-green-400 shadow-md" : "bg-green-200 dark:bg-gray-700 text-green-700 dark:text-green-300 hover:bg-green-100 dark:hover:bg-gray-600"}`}
           >
             <DroneIcon /> {t(language, "tab_drone")}
           </button>
@@ -591,23 +627,23 @@ export default function Home() {
         {activeTab === "drone" && <DroneSimulatorScene language={language} />}
 
         {/* Chat Panel */}
-        <div className={`bg-white p-4 md:p-6 rounded-lg shadow-md w-full mx-auto max-w-2xl min-h-[400px] flex flex-col ${activeTab !== "chat" ? "hidden" : ""}`}>
-          <div className="flex-grow overflow-y-auto mb-4 border-b border-gray-200 pb-4 h-96">
+        <div className={`bg-white dark:bg-gray-800 p-4 md:p-6 rounded-lg shadow-md w-full mx-auto max-w-2xl min-h-[400px] flex flex-col ${activeTab !== "chat" ? "hidden" : ""}`}>
+          <div className="flex-grow overflow-y-auto mb-4 border-b border-gray-200 dark:border-gray-700 pb-4 h-96">
             {messages.length === 0 ? (
               <p className="text-gray-400 text-center mt-10">{t(language, "placeholder_empty")}</p>
             ) : (
               messages.map((msg, i) =>
                 msg.role === "agent" && !msg.content ? null : (
-                  <div key={i} className={`mb-4 p-3 rounded-lg ${msg.role === "user" ? "bg-green-100 ml-auto w-5/6 md:w-3/4" : "bg-gray-100 mr-auto w-5/6 md:w-3/4"}`}>
+                  <div key={i} className={`mb-4 p-3 rounded-lg ${msg.role === "user" ? "bg-green-100 dark:bg-green-900/40 ml-auto w-5/6 md:w-3/4" : "bg-gray-100 dark:bg-gray-700 mr-auto w-5/6 md:w-3/4"}`}>
                     <div className="flex justify-between items-center mb-1">
-                      <span className="font-bold text-sm text-green-800">
+                      <span className="font-bold text-sm text-green-800 dark:text-green-400">
                         {msg.role === "user" ? t(language, "you") : t(language, "kisan_ai")}
                       </span>
                       <div className="flex gap-1">
                         {msg.role === "agent" && msg.metadata && (
                           <button
                             onClick={() => toggleMetadata(i)}
-                            className={`text-xs px-2 py-1 rounded transition-colors ${expandedMeta.has(i) ? "bg-purple-200 text-purple-800" : "bg-gray-200 hover:bg-gray-300 text-gray-600"}`}
+                            className={`text-xs px-2 py-1 rounded transition-colors ${expandedMeta.has(i) ? "bg-purple-200 dark:bg-purple-900/50 text-purple-800 dark:text-purple-300" : "bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 text-gray-600 dark:text-gray-300"}`}
                             title={t(language, "insights_button")}
                           >
                             {expandedMeta.has(i) ? t(language, "hide_button") : t(language, "insights_button")}
@@ -616,7 +652,7 @@ export default function Home() {
                         {msg.role === "agent" && msg.audioBase64 && (
                           <button
                             onClick={() => playingIndex === i ? stopAudio() : playAudio(msg.audioBase64!, i)}
-                            className={`text-xs px-2 py-1 rounded transition-colors flex items-center gap-1 ${playingIndex === i ? "bg-green-200 hover:bg-green-300 text-green-800" : "bg-gray-200 hover:bg-gray-300 text-gray-600"}`}
+                            className={`text-xs px-2 py-1 rounded transition-colors flex items-center gap-1 ${playingIndex === i ? "bg-green-200 dark:bg-green-900/50 hover:bg-green-300 dark:hover:bg-green-800/50 text-green-800 dark:text-green-300" : "bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 text-gray-600 dark:text-gray-300"}`}
                           >
                             {playingIndex === i ? <><StopIcon /> {t(language, "stop_button")}</> : <><PlayIcon /> {t(language, "listen_button")}</>}
                           </button>
@@ -625,8 +661,8 @@ export default function Home() {
                     </div>
 
                     {msg.role === "agent" && msg.metadata && expandedMeta.has(i) && (
-                      <div className="mb-3 p-3 bg-gray-50 border border-gray-200 rounded-md">
-                        <div className="font-semibold text-xs text-gray-700 mb-2">{t(language, "model_insights")}</div>
+                      <div className="mb-3 p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-md">
+                        <div className="font-semibold text-xs text-gray-700 dark:text-gray-300 mb-2">{t(language, "model_insights")}</div>
                         {renderMetadata(msg.metadata)}
                       </div>
                     )}
@@ -637,17 +673,17 @@ export default function Home() {
               )
             )}
             {loadingText && (
-              <div className="bg-gray-100 p-3 rounded-lg mr-auto w-5/6 md:w-3/4 text-gray-500 animate-pulse flex items-center gap-2">
+              <div className="bg-gray-100 dark:bg-gray-700 p-3 rounded-lg mr-auto w-5/6 md:w-3/4 text-gray-500 dark:text-gray-400 animate-pulse flex items-center gap-2">
                 {loadingText}
               </div>
             )}
             <div ref={chatEndRef} />
           </div>
 
-          <form onSubmit={handleAsk} className="border border-green-300 rounded-xl overflow-hidden focus-within:ring-2 focus-within:ring-green-500 focus-within:border-green-500 transition-all">
+          <form onSubmit={handleAsk} className="border border-green-300 dark:border-gray-600 rounded-xl overflow-hidden focus-within:ring-2 focus-within:ring-green-500 dark:focus-within:ring-green-600 focus-within:border-green-500 dark:focus-within:border-green-600 transition-all">
             {/* Image file preview */}
             {imageFile && (
-              <div className="text-sm text-blue-600 flex justify-between items-center bg-blue-50 px-3 py-1.5 border-b border-green-200">
+              <div className="text-sm text-blue-600 dark:text-blue-400 flex justify-between items-center bg-blue-50 dark:bg-blue-900/30 px-3 py-1.5 border-b border-green-200 dark:border-gray-600">
                 <span className="truncate">{imageFile.name}</span>
                 <button type="button" onClick={() => { setImageFile(null); if (fileInputRef.current) fileInputRef.current.value = ""; }} className="text-red-500 font-bold hover:text-red-700 ml-2">X</button>
               </div>
@@ -659,12 +695,12 @@ export default function Home() {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder={isRecording ? t(language, "recording") : t(language, "placeholder")}
-              className="w-full px-3 py-3 text-black bg-transparent focus:outline-none text-sm"
+              className="w-full px-3 py-3 text-black dark:text-gray-200 bg-transparent focus:outline-none text-sm"
               disabled={loading}
             />
 
             {/* Action buttons row */}
-            <div className="flex items-center gap-1 px-2 py-1.5 bg-gray-50 border-t border-green-100">
+            <div className="flex items-center gap-1 px-2 py-1.5 bg-gray-50 dark:bg-gray-700/50 border-t border-green-100 dark:border-gray-600">
               <button
                 type="button"
                 onMouseDown={startRecording}
@@ -672,7 +708,7 @@ export default function Home() {
                 onMouseLeave={() => { if (isRecording) stopRecording(); }}
                 onTouchStart={startRecording}
                 onTouchEnd={stopRecording}
-                className={`p-2 rounded-full transition-colors ${isRecording ? "bg-red-500 text-white animate-pulse" : "text-gray-500 hover:bg-gray-200"}`}
+                className={`p-2 rounded-full transition-colors ${isRecording ? "bg-red-500 text-white animate-pulse" : "text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600"}`}
                 title={t(language, "hold_to_record")}
               >
                 <MicIcon />
@@ -682,7 +718,7 @@ export default function Home() {
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="p-2 rounded-full text-gray-500 hover:bg-gray-200 transition-colors"
+                className="p-2 rounded-full text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
                 title={t(language, "attach_image")}
               >
                 <ImageIcon />

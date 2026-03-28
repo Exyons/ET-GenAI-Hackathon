@@ -52,11 +52,11 @@ export default function DroneSimulatorScene({ language }: DroneSimulatorScenePro
 
   const severityColor = (sev: string) => {
     switch (sev) {
-      case "healthy": return "bg-green-100 text-green-800 border-green-300";
-      case "mild": return "bg-yellow-100 text-yellow-800 border-yellow-300";
-      case "moderate": return "bg-orange-100 text-orange-800 border-orange-300";
-      case "severe": return "bg-red-100 text-red-800 border-red-300";
-      default: return "bg-gray-100 text-gray-800 border-gray-300";
+      case "healthy": return "bg-green-100 dark:bg-green-900/40 text-green-800 dark:text-green-300 border-green-300 dark:border-green-700";
+      case "mild": return "bg-yellow-100 dark:bg-yellow-900/40 text-yellow-800 dark:text-yellow-300 border-yellow-300 dark:border-yellow-700";
+      case "moderate": return "bg-orange-100 dark:bg-orange-900/40 text-orange-800 dark:text-orange-300 border-orange-300 dark:border-orange-700";
+      case "severe": return "bg-red-100 dark:bg-red-900/40 text-red-800 dark:text-red-300 border-red-300 dark:border-red-700";
+      default: return "bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-300 border-gray-300 dark:border-gray-600";
     }
   };
 
@@ -73,8 +73,8 @@ export default function DroneSimulatorScene({ language }: DroneSimulatorScenePro
   };
 
   return (
-    <div className="bg-white p-4 md:p-6 rounded-lg shadow-md w-full mx-auto max-w-4xl">
-      <h2 className="text-xl font-bold text-green-800 mb-4 flex items-center gap-2">
+    <div className="bg-white dark:bg-gray-800 p-4 md:p-6 rounded-lg shadow-md w-full mx-auto max-w-4xl">
+      <h2 className="text-xl font-bold text-green-800 dark:text-green-400 mb-4 flex items-center gap-2">
         <DroneIcon /> {t(language, "drone_title")}
       </h2>
 
@@ -90,7 +90,7 @@ export default function DroneSimulatorScene({ language }: DroneSimulatorScenePro
         {status === "complete" && (
           <button
             onClick={handleReset}
-            className="px-4 bg-gray-200 text-gray-700 py-3 rounded font-bold hover:bg-gray-300 transition-colors"
+            className="px-4 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 py-3 rounded font-bold hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
           >
             Reset
           </button>
@@ -98,7 +98,7 @@ export default function DroneSimulatorScene({ language }: DroneSimulatorScenePro
       </div>
 
       {/* 3D Viewport */}
-      <div className="relative w-full rounded-lg overflow-hidden border border-gray-200 bg-gray-900" style={{ height: "500px" }}>
+      <div className="relative w-full rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 bg-gray-900" style={{ height: "500px" }}>
         <Canvas
           shadows
           camera={{ position: [60, 55, 60], fov: 45 }}
@@ -184,7 +184,7 @@ export default function DroneSimulatorScene({ language }: DroneSimulatorScenePro
       {/* Live Detection Feed (during survey) */}
       {detections.length > 0 && status === "surveying" && (
         <div className="mt-4 space-y-2 max-h-40 overflow-y-auto">
-          <h3 className="text-sm font-bold text-gray-700">Live Detections</h3>
+          <h3 className="text-sm font-bold text-gray-700 dark:text-gray-300">Live Detections</h3>
           {detections.slice(-4).map((det, i) => (
             <div key={i} className={`p-2 rounded border text-sm ${severityColor(det.severity)}`}>
               <div className="flex justify-between items-center">
@@ -199,13 +199,13 @@ export default function DroneSimulatorScene({ language }: DroneSimulatorScenePro
 
       {/* Mission Report */}
       {missionComplete && (
-        <div className="mt-4 border border-gray-200 rounded-lg overflow-hidden">
+        <div className="mt-4 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
           <div className={`p-3 font-bold text-center ${
             missionComplete.overall_health === "healthy"
-              ? "bg-green-100 text-green-800"
+              ? "bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-300"
               : missionComplete.overall_health === "critical"
-                ? "bg-red-100 text-red-800"
-                : "bg-yellow-100 text-yellow-800"
+                ? "bg-red-100 dark:bg-red-900/50 text-red-800 dark:text-red-300"
+                : "bg-yellow-100 dark:bg-yellow-900/50 text-yellow-800 dark:text-yellow-300"
           }`}>
             {t(language, "drone_complete")} &mdash; {t(language,
               missionComplete.overall_health === "healthy" ? "drone_healthy"
@@ -214,11 +214,11 @@ export default function DroneSimulatorScene({ language }: DroneSimulatorScenePro
             )}
           </div>
 
-          <div className="p-3 text-sm grid grid-cols-2 md:grid-cols-4 gap-2 bg-gray-50">
-            <div><span className="text-gray-500">{t(language, "drone_field_area")}:</span> <span className="font-bold">{missionComplete.area_covered_hectares} ha</span></div>
-            <div><span className="text-gray-500">{t(language, "drone_waypoint")}:</span> <span className="font-bold">{missionComplete.waypoints_surveyed}</span></div>
-            <div><span className="text-gray-500">{t(language, "drone_battery")}:</span> <span className="font-bold">{missionComplete.battery_remaining_pct}%</span></div>
-            <div><span className="text-gray-500">Time:</span> <span className="font-bold">{missionComplete.total_time_s}s</span></div>
+          <div className="p-3 text-sm grid grid-cols-2 md:grid-cols-4 gap-2 bg-gray-50 dark:bg-gray-800">
+            <div><span className="text-gray-500 dark:text-gray-400">{t(language, "drone_field_area")}:</span> <span className="font-bold">{missionComplete.area_covered_hectares} ha</span></div>
+            <div><span className="text-gray-500 dark:text-gray-400">{t(language, "drone_waypoint")}:</span> <span className="font-bold">{missionComplete.waypoints_surveyed}</span></div>
+            <div><span className="text-gray-500 dark:text-gray-400">{t(language, "drone_battery")}:</span> <span className="font-bold">{missionComplete.battery_remaining_pct}%</span></div>
+            <div><span className="text-gray-500 dark:text-gray-400">Time:</span> <span className="font-bold">{missionComplete.total_time_s}s</span></div>
           </div>
 
           {/* Zone Grid */}
@@ -236,24 +236,24 @@ export default function DroneSimulatorScene({ language }: DroneSimulatorScenePro
 
           {/* Issues */}
           {missionComplete.issues?.length > 0 && (
-            <div className="p-3 border-t border-gray-200">
+            <div className="p-3 border-t border-gray-200 dark:border-gray-700">
               <h3 className="font-bold text-sm mb-2">Issues Found ({missionComplete.issues_count})</h3>
               {missionComplete.issues.map((issue, i) => (
-                <div key={i} className="mb-2 p-2 bg-red-50 border border-red-200 rounded text-sm">
+                <div key={i} className="mb-2 p-2 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded text-sm">
                   <div className="font-bold">{t(language, "drone_zone")} {issue.zone}: {issue.condition.replace(/_/g, " ")} ({issue.severity})</div>
-                  <div className="text-xs text-gray-700 mt-1">{issue.recommendation}</div>
+                  <div className="text-xs text-gray-700 dark:text-gray-400 mt-1">{issue.recommendation}</div>
                 </div>
               ))}
             </div>
           )}
 
           {missionComplete.issues_count === 0 && (
-            <div className="p-3 text-center text-green-700 font-bold">{t(language, "drone_no_issues")}</div>
+            <div className="p-3 text-center text-green-700 dark:text-green-400 font-bold">{t(language, "drone_no_issues")}</div>
           )}
 
           {/* Spray Plan Button */}
           {missionComplete.issues_count > 0 && !sprayPlan && (
-            <div className="p-3 border-t border-gray-200">
+            <div className="p-3 border-t border-gray-200 dark:border-gray-700">
               <button
                 onClick={() => requestSprayPlan(detections)}
                 disabled={sprayLoading}
@@ -268,22 +268,22 @@ export default function DroneSimulatorScene({ language }: DroneSimulatorScenePro
 
       {/* Spray Plan */}
       {sprayPlan && sprayPlan.status === "spray_plan_ready" && (
-        <div className="mt-4 border border-orange-200 rounded-lg bg-orange-50 p-3">
-          <h3 className="font-bold text-orange-800 mb-2">{t(language, "drone_spray_plan")}</h3>
+        <div className="mt-4 border border-orange-200 dark:border-orange-800 rounded-lg bg-orange-50 dark:bg-orange-900/20 p-3">
+          <h3 className="font-bold text-orange-800 dark:text-orange-400 mb-2">{t(language, "drone_spray_plan")}</h3>
           <div className="text-sm mb-2">
-            <span className="text-gray-600">Affected: </span>
+            <span className="text-gray-600 dark:text-gray-400">Affected: </span>
             <span className="font-bold">{sprayPlan.total_affected_area_hectares} ha</span>
-            <span className="text-gray-600"> / {sprayPlan.total_field_area_hectares} ha total</span>
-            <span className="ml-2 text-green-700 font-bold">({sprayPlan.chemical_savings_pct}% chemical savings)</span>
+            <span className="text-gray-600 dark:text-gray-400"> / {sprayPlan.total_field_area_hectares} ha total</span>
+            <span className="ml-2 text-green-700 dark:text-green-400 font-bold">({sprayPlan.chemical_savings_pct}% chemical savings)</span>
           </div>
           {sprayPlan.missions?.map((m, i) => (
-            <div key={i} className={`p-2 mb-2 rounded border text-sm ${m.priority === "high" ? "bg-red-50 border-red-300" : "bg-yellow-50 border-yellow-300"}`}>
+            <div key={i} className={`p-2 mb-2 rounded border text-sm ${m.priority === "high" ? "bg-red-50 dark:bg-red-900/30 border-red-300 dark:border-red-700" : "bg-yellow-50 dark:bg-yellow-900/30 border-yellow-300 dark:border-yellow-700"}`}>
               <div className="font-bold">{m.condition.replace(/_/g, " ")} &mdash; Zones: {m.zones.join(", ")}</div>
               <div className="text-xs mt-1">{m.treatment}</div>
-              <div className="text-xs mt-1 text-gray-500">Area: {m.affected_area_hectares} ha | Priority: {m.priority}</div>
+              <div className="text-xs mt-1 text-gray-500 dark:text-gray-400">Area: {m.affected_area_hectares} ha | Priority: {m.priority}</div>
             </div>
           ))}
-          <div className="text-xs text-gray-500 mt-2 italic">{sprayPlan.note}</div>
+          <div className="text-xs text-gray-500 dark:text-gray-400 mt-2 italic">{sprayPlan.note}</div>
         </div>
       )}
     </div>

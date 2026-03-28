@@ -95,10 +95,10 @@ export default function ChatSidebar({
 
   return (
     <>
-      {/* Mobile hamburger toggle */}
+      {/* Toggle button — always visible */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="md:hidden fixed top-4 left-4 z-50 bg-green-800 text-white p-2 rounded-lg shadow-lg"
+        className="fixed top-4 left-4 z-50 bg-green-800 text-white p-2 rounded-lg shadow-lg hover:bg-green-700 transition-colors"
       >
         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           {isOpen ? (
@@ -116,7 +116,7 @@ export default function ChatSidebar({
         </svg>
       </button>
 
-      {/* Mobile overlay */}
+      {/* Overlay backdrop (mobile only) */}
       {isOpen && (
         <div
           className="md:hidden fixed inset-0 bg-black/40 z-30"
@@ -127,13 +127,14 @@ export default function ChatSidebar({
       {/* Sidebar */}
       <aside
         className={`
-          fixed md:sticky top-0 left-0 z-40 h-screen
+          fixed top-0 left-0 z-40 h-screen
           w-64 bg-green-900 flex-shrink-0
           transition-transform duration-200 ease-in-out
-          md:translate-x-0
           ${isOpen ? "translate-x-0" : "-translate-x-full"}
         `}
       >
+        {/* Spacer so content doesn't hide behind the toggle button */}
+        <div className="h-14" />
         {sidebarContent}
       </aside>
     </>
