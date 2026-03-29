@@ -1,5 +1,4 @@
 from typing import Optional, List, Dict, Any
-from ollama import Client
 import chromadb
 import chromadb.utils.embedding_functions as embedding_functions
 from deep_translator import GoogleTranslator
@@ -11,15 +10,14 @@ import base64
 import time
 from dotenv import load_dotenv
 
+from . import llm
+
 # Load environment variables
 load_dotenv()
 
 DB_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "chroma_db")
 
 # Environment configurations
-OLLAMA_BASE_URL = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
-OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "llama3.1")
-OLLAMA_VISION_MODEL = os.environ.get("OLLAMA_VISION_MODEL", "llama3.2-vision")
 WHISPER_MODEL = os.environ.get("WHISPER_TTS_MODEL", "base")
 DEBUG_MODE = os.environ.get("DEBUG_MODE", "false").lower() == "true"
 
@@ -35,9 +33,6 @@ LANG_MAP = {
     "gu": {"name": "Gujarati", "translator": "gu", "gtts": "gu", "whisper": "gu"},
     "pa": {"name": "Punjabi", "translator": "pa", "gtts": "pa", "whisper": "pa"},
 }
-
-# Initialize Ollama client
-ollama_client = Client(host=OLLAMA_BASE_URL)
 
 # Setup Chroma Client
 chroma_client = chromadb.PersistentClient(path=DB_DIR)
@@ -285,9 +280,7 @@ def check_intent_helper(query: str) -> Dict[str, Any]:
         "duration_ms": 0,
     }
     try:
-        response = ollama_client.chat(
-            model=OLLAMA_MODEL, messages=[{"role": "user", "content": prompt}]
-        )
+        response = llm.chat(prompt)
         raw_ans = response.get("message", {}).get("content", "")
         ans = clean_think_tags(raw_ans).strip().upper()
         duration_ms = int((time.time() - start) * 1000)
@@ -386,9 +379,10 @@ Instructions:
 
 # --------------- Vision ---------------
 
-def validate_farm_image(image_bytes: bytes, model: str = OLLAMA_VISION_MODEL) -> Dict[str, Any]:
+def validate_farm_image(image_bytes: bytes) -> Dict[str, Any]:
     """Check if the uploaded image contains agricultural/farm content."""
     start = time.time()
+    model = llm.get_vision_model()
     result: Dict[str, Any] = {
         "is_farm_image": False,
         "description": "",
@@ -404,11 +398,7 @@ FARM: YES or NO
 DESCRIPTION: one sentence describing what you see in the image"""
 
     try:
-        b64_image = base64.b64encode(image_bytes).decode("utf-8")
-        response = ollama_client.chat(
-            model=model,
-            messages=[{"role": "user", "content": prompt, "images": [b64_image]}],
-        )
+        response = llm.chat_vision(prompt, image_bytes)
         raw = clean_think_tags(response.get("message", {}).get("content", ""))
         duration_ms = int((time.time() - start) * 1000)
 
@@ -438,10 +428,11 @@ DESCRIPTION: one sentence describing what you see in the image"""
 
 
 def get_vision_response(
-    image_bytes: bytes, prompt: str, model: str = OLLAMA_VISION_MODEL
+    image_bytes: bytes, prompt: str,
 ) -> Dict[str, Any]:
-    """Query Ollama Vision model for symptom extraction."""
+    """Query vision model for symptom extraction."""
     start = time.time()
+    model = llm.get_vision_model()
     result: Dict[str, Any] = {
         "symptoms": "",
         "model": model,
@@ -457,11 +448,7 @@ def get_vision_response(
     })
 
     try:
-        b64_image = base64.b64encode(image_bytes).decode("utf-8")
-        response = ollama_client.chat(
-            model=model,
-            messages=[{"role": "user", "content": prompt, "images": [b64_image]}],
-        )
+        response = llm.chat_vision(prompt, image_bytes)
         raw_content = response.get("message", {}).get("content", "")
         symptoms = clean_think_tags(raw_content)
         duration_ms = int((time.time() - start) * 1000)

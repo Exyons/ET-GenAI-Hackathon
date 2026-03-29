@@ -19,9 +19,8 @@ from .agent import (
     build_draft_prompt,
     clean_think_tags,
     debug_log,
-    ollama_client,
-    OLLAMA_MODEL,
 )
+from . import llm
 from .farmer_db import get_or_create_farmer, update_language, log_message
 
 # ---------- TextBee config ----------
@@ -135,9 +134,7 @@ def run_pipeline_sync(query: str, language: str) -> str:
     rag = fetch_rag_context_helper(eng_query)
 
     prompt = build_draft_prompt(rag["documents"], eng_query)
-    response = ollama_client.chat(
-        model=OLLAMA_MODEL, messages=[{"role": "user", "content": prompt}]
-    )
+    response = llm.chat(prompt)
     english_response = clean_think_tags(response.get("message", {}).get("content", ""))
 
     # Strip markdown for SMS (plain text channel)

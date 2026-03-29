@@ -16,9 +16,8 @@ from .agent import (
     build_draft_prompt,
     clean_think_tags,
     debug_log,
-    ollama_client,
-    OLLAMA_MODEL,
 )
+from . import llm
 from .farmer_db import get_or_create_farmer, update_language, log_message
 from .sms import parse_command, HELP_MESSAGES, run_pipeline_sync
 
@@ -203,9 +202,7 @@ def handle_whatsapp_message(msg_info: Dict[str, Any]) -> str:
         # RAG + generate
         rag = fetch_rag_context_helper(eng_query + " " + symptoms)
         prompt = build_draft_prompt(rag["documents"], eng_query, symptoms=symptoms)
-        response = ollama_client.chat(
-            model=OLLAMA_MODEL, messages=[{"role": "user", "content": prompt}]
-        )
+        response = llm.chat(prompt)
         english_response = clean_think_tags(response.get("message", {}).get("content", ""))
         reply = translate_from_english(english_response, lang)["translated_text"]
 

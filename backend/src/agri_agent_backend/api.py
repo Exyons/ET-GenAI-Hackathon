@@ -19,10 +19,9 @@ from .agent import (
     build_draft_prompt,
     clean_think_tags,
     debug_log,
-    ollama_client,
-    OLLAMA_MODEL,
     DEBUG_MODE,
 )
+from . import llm
 from .sms import handle_incoming_sms, send_sms, verify_textbee_signature, textbee_available, twilio_available
 from .whatsapp import (
     parse_webhook_payload,
@@ -59,17 +58,15 @@ def sse_event(data: dict) -> str:
 @app.get("/api/health")
 async def healthcheck():
     """Service healthcheck — connectivity and provider status."""
+    provider_info = llm.get_provider_info()
     ollama_ok = False
-    try:
-        ollama_client.list()
-        ollama_ok = True
-    except Exception:
-        pass
+    if provider_info["text_provider"] == "ollama" or provider_info["vision_provider"] == "ollama":
+        ollama_ok = llm.ollama_available()
 
     return {
         "status": "ok",
-        "ollama": ollama_ok,
-        "ollama_model": OLLAMA_MODEL,
+        "llm": provider_info,
+        "ollama_reachable": ollama_ok,
         "debug_mode": DEBUG_MODE,
         "sms": {
             "textbee": textbee_available(),
@@ -126,6 +123,7 @@ async def ask_agent_stream(req: QueryRequest):
             # 3. RAG Context
             yield sse_event({"type": "status", "step": "rag"})
             rag = fetch_rag_context_helper(eng_query)
+            debug_log("RAG", {"content": rag})
             yield sse_event({
                 "type": "metadata", "step": "rag",
                 "data": {
@@ -140,16 +138,13 @@ async def ask_agent_stream(req: QueryRequest):
             # 4. Generate English response (streamed), collect full text
             yield sse_event({"type": "status", "step": "generate"})
             prompt = build_draft_prompt(rag["documents"], eng_query)
-            debug_log("GENERATE", {"model": OLLAMA_MODEL, "prompt_length": len(prompt)})
+            text_model = llm.get_text_model()
+            debug_log("GENERATE", {"model": text_model, "prompt_length": len(prompt)})
 
             gen_start = time.time()
             token_count = 0
             english_response = ""
-            for chunk in ollama_client.chat(
-                model=OLLAMA_MODEL,
-                messages=[{"role": "user", "content": prompt}],
-                stream=True,
-            ):
+            for chunk in llm.chat(prompt, stream=True):
                 content = chunk.get("message", {}).get("content", "")
                 if content:
                     token_count += 1
@@ -160,7 +155,7 @@ async def ask_agent_stream(req: QueryRequest):
             yield sse_event({
                 "type": "metadata", "step": "generate",
                 "data": {
-                    "model": OLLAMA_MODEL,
+                    "model": text_model,
                     "english_response": english_response[:300],
                     "chunks_streamed": token_count,
                     "generation_duration_ms": gen_duration,
@@ -296,15 +291,12 @@ async def upload_image_stream(
             # 5. Generate English response
             yield sse_event({"type": "status", "step": "generate"})
             prompt = build_draft_prompt(rag["documents"], eng_query, symptoms=symptoms)
+            text_model = llm.get_text_model()
 
             gen_start = time.time()
             token_count = 0
             english_response = ""
-            for chunk in ollama_client.chat(
-                model=OLLAMA_MODEL,
-                messages=[{"role": "user", "content": prompt}],
-                stream=True,
-            ):
+            for chunk in llm.chat(prompt, stream=True):
                 content = chunk.get("message", {}).get("content", "")
                 if content:
                     token_count += 1
@@ -315,7 +307,7 @@ async def upload_image_stream(
             yield sse_event({
                 "type": "metadata", "step": "generate",
                 "data": {
-                    "model": OLLAMA_MODEL,
+                    "model": text_model,
                     "english_response": english_response[:300],
                     "chunks_streamed": token_count,
                     "generation_duration_ms": gen_duration,
