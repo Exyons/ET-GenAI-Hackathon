@@ -707,16 +707,16 @@ export default function Home() {
                 ) : (
                   messages.map((msg, i) =>
                     msg.role === "agent" && !msg.content ? null : (
-                      <div key={i} className={`group mb-3 p-3 rounded-lg ${msg.role === "user" ? "bg-green-50 dark:bg-green-900/30 ml-auto w-5/6 md:w-3/4" : "bg-gray-50 dark:bg-gray-700/50 mr-auto w-5/6 md:w-3/4"}`}>
+                      <div key={i} className={`mb-3 p-3 rounded-lg ${msg.role === "user" ? "bg-green-50 dark:bg-green-900/30 ml-auto w-5/6 md:w-3/4" : "bg-gray-50 dark:bg-gray-700/50 mr-auto w-5/6 md:w-3/4"}`}>
                         <div className="flex justify-between items-center mb-1">
                           <span className="font-semibold text-xs text-green-700 dark:text-green-400">
                             {msg.role === "user" ? t(language, "you") : t(language, "kisan_ai")}
                           </span>
                           <div className="flex gap-1 items-center">
-                            {/* Copy button */}
+                            {/* Copy button — always visible for touch/keyboard accessibility */}
                             <button
                               onClick={() => copyToClipboard(msg.content, i)}
-                              className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-400 dark:text-gray-500"
+                              className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-400 dark:text-gray-500 transition-colors"
                               title="Copy"
                             >
                               {copiedIndex === i ? <CheckIcon /> : <CopyIcon />}

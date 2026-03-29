@@ -92,7 +92,7 @@ export default function DroneSimulatorScene({ language }: DroneSimulatorScenePro
             onClick={handleReset}
             className="px-4 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 py-3 rounded font-bold hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
           >
-            Reset
+            {t(language, "drone_reset")}
           </button>
         )}
       </div>
