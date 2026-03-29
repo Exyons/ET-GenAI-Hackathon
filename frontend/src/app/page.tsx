@@ -58,6 +58,16 @@ interface Message {
 }
 
 // SVG Icons
+const CopyIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="9" y="9" width="13" height="13" rx="2" ry="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+  </svg>
+);
+const CheckIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="20 6 9 17 4 12" />
+  </svg>
+);
 const PlayIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
     <path d="M8 5v14l11-7z" />
@@ -126,6 +136,17 @@ export default function Home() {
   const [expandedMeta, setExpandedMeta] = useState<Set<number>>(new Set());
   const [isRecording, setIsRecording] = useState(false);
   const [activeTab, setActiveTab] = useState<"chat" | "drone">("chat");
+  const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
+
+  const copyToClipboard = async (text: string, index: number) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedIndex(index);
+      setTimeout(() => setCopiedIndex(null), 2000);
+    } catch (err) {
+      console.error("Copy failed:", err);
+    }
+  };
 
   // Sync messages from active session on switch
   useEffect(() => {
@@ -582,7 +603,7 @@ export default function Home() {
   );
 
   return (
-    <div className="flex min-h-screen bg-green-50 dark:bg-[#0f1a0f] text-gray-800 dark:text-gray-200">
+    <div className="flex h-screen bg-green-50 dark:bg-[#0f1a0f] text-gray-800 dark:text-gray-200">
       <ChatSidebar
         sessions={sessions}
         activeSessionId={activeSessionId}
@@ -595,15 +616,13 @@ export default function Home() {
       />
 
       <main className="flex-1 flex flex-col items-center p-4 md:p-8 overflow-y-auto">
-        <div className="z-10 w-full max-w-5xl text-sm">
-          {/* Header — title on top, controls below */}
-          <div className="flex flex-col items-center mb-6 gap-3">
-            <h1 className="text-3xl md:text-4xl font-bold text-center text-green-800 dark:text-green-400">{t(language, "title")}</h1>
-            <div className="flex items-center gap-3">
-              {/* Sidebar toggle (inline, no longer fixed) */}
+        <div className="z-10 w-full max-w-2xl text-sm flex flex-col flex-1 min-h-0">
+          {/* Header — title + controls */}
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
               <button
                 onClick={() => setSidebarOpen((v) => !v)}
-                className="p-2 rounded-full bg-white dark:bg-gray-800 shadow-md hover:shadow-lg transition-all border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300"
+                className="p-1.5 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors text-gray-500 dark:text-gray-400"
                 title="Menu"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -612,14 +631,16 @@ export default function Home() {
                   <line x1="3" y1="18" x2="21" y2="18" />
                 </svg>
               </button>
-              {/* Dark mode toggle */}
+              <h1 className="text-xl md:text-2xl font-bold text-green-800 dark:text-green-400">{t(language, "title")}</h1>
+            </div>
+            <div className="flex items-center gap-2">
               <button
                 onClick={() => setDarkMode((v) => !v)}
-                className="p-2 rounded-full bg-white dark:bg-gray-800 shadow-md hover:shadow-lg transition-all border border-gray-200 dark:border-gray-600"
+                className="p-1.5 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors text-gray-500 dark:text-gray-400"
                 title={darkMode ? "Light mode" : "Dark mode"}
               >
                 {darkMode ? (
-                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-yellow-400">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-yellow-400">
                     <circle cx="12" cy="12" r="5" />
                     <line x1="12" y1="1" x2="12" y2="3" /><line x1="12" y1="21" x2="12" y2="23" />
                     <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" /><line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
@@ -627,7 +648,7 @@ export default function Home() {
                     <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" /><line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
                   </svg>
                 ) : (
-                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-600">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
                   </svg>
                 )}
@@ -635,153 +656,175 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="bg-white dark:bg-gray-800 p-4 md:p-6 rounded-lg shadow-md mb-6 w-full mx-auto max-w-2xl">
-          <label className="block mb-2 font-bold">{t(language, "language_label")}</label>
-          <select
-            value={language}
-            onChange={(e) => setLanguage(e.target.value)}
-            className="w-full p-2 border border-green-300 dark:border-gray-600 rounded text-black dark:text-gray-200 bg-white dark:bg-gray-700"
-          >
-            <option value="en-IN">English</option>
-            <option value="hi-IN">हिंदी (Hindi)</option>
-            <option value="mr-IN">मराठी (Marathi)</option>
-            <option value="te-IN">తెలుగు (Telugu)</option>
-          </select>
-        </div>
-
-        {/* Tabs */}
-        <div className="flex gap-2 mb-4 mx-auto max-w-2xl">
-          <button
-            onClick={() => setActiveTab("chat")}
-            className={`flex-1 py-2 px-4 rounded-t-lg font-bold text-sm transition-colors ${activeTab === "chat" ? "bg-white dark:bg-gray-800 text-green-800 dark:text-green-400 shadow-md" : "bg-green-200 dark:bg-gray-700 text-green-700 dark:text-green-300 hover:bg-green-100 dark:hover:bg-gray-600"}`}
-          >
-            {t(language, "tab_chat")}
-          </button>
-          <button
-            onClick={() => setActiveTab("drone")}
-            className={`flex-1 py-2 px-4 rounded-t-lg font-bold text-sm transition-colors flex items-center justify-center gap-2 ${activeTab === "drone" ? "bg-white dark:bg-gray-800 text-green-800 dark:text-green-400 shadow-md" : "bg-green-200 dark:bg-gray-700 text-green-700 dark:text-green-300 hover:bg-green-100 dark:hover:bg-gray-600"}`}
-          >
-            <DroneIcon /> {t(language, "tab_drone")}
-          </button>
-        </div>
-
-        {/* 3D Drone Survey Panel */}
-        {activeTab === "drone" && <DronePanel language={language} />}
-
-        {/* Chat Panel */}
-        <div className={`bg-white dark:bg-gray-800 p-4 md:p-6 rounded-lg shadow-md w-full mx-auto max-w-2xl min-h-[400px] flex flex-col ${activeTab !== "chat" ? "hidden" : ""}`}>
-          <div className="flex-grow overflow-y-auto mb-4 border-b border-gray-200 dark:border-gray-700 pb-4 h-96">
-            {messages.length === 0 ? (
-              <p className="text-gray-400 text-center mt-10">{t(language, "placeholder_empty")}</p>
-            ) : (
-              messages.map((msg, i) =>
-                msg.role === "agent" && !msg.content ? null : (
-                  <div key={i} className={`mb-4 p-3 rounded-lg ${msg.role === "user" ? "bg-green-100 dark:bg-green-900/40 ml-auto w-5/6 md:w-3/4" : "bg-gray-100 dark:bg-gray-700 mr-auto w-5/6 md:w-3/4"}`}>
-                    <div className="flex justify-between items-center mb-1">
-                      <span className="font-bold text-sm text-green-800 dark:text-green-400">
-                        {msg.role === "user" ? t(language, "you") : t(language, "kisan_ai")}
-                      </span>
-                      <div className="flex gap-1">
-                        {msg.role === "agent" && msg.metadata && (
-                          <button
-                            onClick={() => toggleMetadata(i)}
-                            className={`text-xs px-2 py-1 rounded transition-colors ${expandedMeta.has(i) ? "bg-purple-200 dark:bg-purple-900/50 text-purple-800 dark:text-purple-300" : "bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 text-gray-600 dark:text-gray-300"}`}
-                            title={t(language, "insights_button")}
-                          >
-                            {expandedMeta.has(i) ? t(language, "hide_button") : t(language, "insights_button")}
-                          </button>
-                        )}
-                        {msg.role === "agent" && msg.audioBase64 && (
-                          <button
-                            onClick={() => playingIndex === i ? stopAudio() : playAudio(msg.audioBase64!, i)}
-                            className={`text-xs px-2 py-1 rounded transition-colors flex items-center gap-1 ${playingIndex === i ? "bg-green-200 dark:bg-green-900/50 hover:bg-green-300 dark:hover:bg-green-800/50 text-green-800 dark:text-green-300" : "bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 text-gray-600 dark:text-gray-300"}`}
-                          >
-                            {playingIndex === i ? <><StopIcon /> {t(language, "stop_button")}</> : <><PlayIcon /> {t(language, "listen_button")}</>}
-                          </button>
-                        )}
-                      </div>
-                    </div>
-
-                    {msg.role === "agent" && msg.metadata && expandedMeta.has(i) && (
-                      <div className="mb-3 p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-md">
-                        <div className="font-semibold text-xs text-gray-700 dark:text-gray-300 mb-2">{t(language, "model_insights")}</div>
-                        {renderMetadata(msg.metadata)}
-                      </div>
-                    )}
-
-                    {msg.role === "agent" ? renderMessageContent(msg.content) : <p className="text-sm md:text-base whitespace-pre-wrap">{msg.content}</p>}
-                  </div>
-                )
-              )
-            )}
-            {loadingText && (
-              <div className="bg-gray-100 dark:bg-gray-700 p-3 rounded-lg mr-auto w-5/6 md:w-3/4 text-gray-500 dark:text-gray-400 animate-pulse flex items-center gap-2">
-                {loadingText}
+          {/* Unified container: language + tabs + content */}
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md flex flex-col flex-1 min-h-0 overflow-hidden">
+            {/* Top bar: language selector + tabs */}
+            <div className="flex items-center justify-between px-4 py-2 border-b border-gray-100 dark:border-gray-700">
+              {/* Tabs */}
+              <div className="flex gap-1">
+                <button
+                  onClick={() => setActiveTab("chat")}
+                  className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${activeTab === "chat" ? "bg-green-100 dark:bg-green-900/40 text-green-800 dark:text-green-400" : "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"}`}
+                >
+                  {t(language, "tab_chat")}
+                </button>
+                <button
+                  onClick={() => setActiveTab("drone")}
+                  className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors flex items-center gap-1.5 ${activeTab === "drone" ? "bg-green-100 dark:bg-green-900/40 text-green-800 dark:text-green-400" : "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"}`}
+                >
+                  <DroneIcon /> {t(language, "tab_drone")}
+                </button>
               </div>
-            )}
-            <div ref={chatEndRef} />
-          </div>
 
-          <form onSubmit={handleAsk} className="border border-green-300 dark:border-gray-600 rounded-xl overflow-hidden focus-within:ring-2 focus-within:ring-green-500 dark:focus-within:ring-green-600 focus-within:border-green-500 dark:focus-within:border-green-600 transition-all">
-            {/* Image file preview */}
-            {imageFile && (
-              <div className="text-sm text-blue-600 dark:text-blue-400 flex justify-between items-center bg-blue-50 dark:bg-blue-900/30 px-3 py-1.5 border-b border-green-200 dark:border-gray-600">
-                <span className="truncate">{imageFile.name}</span>
-                <button type="button" onClick={() => { setImageFile(null); if (fileInputRef.current) fileInputRef.current.value = ""; }} className="text-red-500 font-bold hover:text-red-700 ml-2">X</button>
+              {/* Language selector — inline, minimal */}
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-gray-400 hidden sm:inline">{t(language, "language_label")}</span>
+                <select
+                  value={language}
+                  onChange={(e) => setLanguage(e.target.value)}
+                  className="text-xs px-2 py-1 rounded-md border border-gray-200 dark:border-gray-600 bg-transparent text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-1 focus:ring-green-500 cursor-pointer"
+                >
+                  <option value="en-IN">EN</option>
+                  <option value="hi-IN">हिंदी</option>
+                  <option value="mr-IN">मराठी</option>
+                  <option value="te-IN">తెలుగు</option>
+                </select>
               </div>
-            )}
-
-            {/* Text input */}
-            <input
-              type="text"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder={isRecording ? t(language, "recording") : t(language, "placeholder")}
-              className="w-full px-3 py-3 text-black dark:text-gray-200 bg-transparent focus:outline-none text-sm"
-              disabled={loading}
-            />
-
-            {/* Action buttons row */}
-            <div className="flex items-center gap-1 px-2 py-1.5 bg-gray-50 dark:bg-gray-700/50 border-t border-green-100 dark:border-gray-600">
-              <button
-                type="button"
-                onMouseDown={startRecording}
-                onMouseUp={stopRecording}
-                onMouseLeave={() => { if (isRecording) stopRecording(); }}
-                onTouchStart={startRecording}
-                onTouchEnd={stopRecording}
-                className={`p-2 rounded-full transition-colors ${isRecording ? "bg-red-500 text-white animate-pulse" : "text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600"}`}
-                title={t(language, "hold_to_record")}
-              >
-                <MicIcon />
-              </button>
-
-              <input type="file" accept="image/*" ref={fileInputRef} onChange={handleFileChange} className="hidden" />
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                className="p-2 rounded-full text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
-                title={t(language, "attach_image")}
-              >
-                <ImageIcon />
-              </button>
-
-              <div className="flex-grow" />
-
-              {/* Send button — round arrow */}
-              <button
-                type="submit"
-                className="p-2 rounded-full bg-green-600 text-white hover:bg-green-700 disabled:opacity-30 disabled:hover:bg-green-600 transition-colors"
-                disabled={loading || (!query.trim() && !imageFile)}
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <line x1="5" y1="12" x2="19" y2="12" />
-                  <polyline points="12 5 19 12 12 19" />
-                </svg>
-              </button>
             </div>
-          </form>
-        </div>
+
+            {/* 3D Drone Survey Panel */}
+            {activeTab === "drone" && (
+              <div className="flex-1 overflow-y-auto p-4">
+                <DronePanel language={language} />
+              </div>
+            )}
+
+            {/* Chat Panel */}
+            <div className={`flex flex-col flex-1 min-h-0 ${activeTab !== "chat" ? "hidden" : ""}`}>
+              <div className="flex-1 overflow-y-auto px-4 py-3">
+                {messages.length === 0 ? (
+                  <p className="text-gray-400 text-center mt-10">{t(language, "placeholder_empty")}</p>
+                ) : (
+                  messages.map((msg, i) =>
+                    msg.role === "agent" && !msg.content ? null : (
+                      <div key={i} className={`mb-3 p-3 rounded-lg ${msg.role === "user" ? "bg-green-50 dark:bg-green-900/30 ml-auto w-5/6 md:w-3/4" : "bg-gray-50 dark:bg-gray-700/50 mr-auto w-5/6 md:w-3/4"}`}>
+                        <div className="flex justify-between items-center mb-1">
+                          <span className="font-semibold text-xs text-green-700 dark:text-green-400">
+                            {msg.role === "user" ? t(language, "you") : t(language, "kisan_ai")}
+                          </span>
+                          <div className="flex gap-1 items-center">
+                            {/* Copy button — always visible for touch/keyboard accessibility */}
+                            <button
+                              onClick={() => copyToClipboard(msg.content, i)}
+                              className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-400 dark:text-gray-500 transition-colors"
+                              title="Copy"
+                            >
+                              {copiedIndex === i ? <CheckIcon /> : <CopyIcon />}
+                            </button>
+                            {msg.role === "agent" && msg.metadata && (
+                              <button
+                                onClick={() => toggleMetadata(i)}
+                                className={`text-xs px-2 py-0.5 rounded transition-colors ${expandedMeta.has(i) ? "bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300" : "text-gray-400 dark:text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-600"}`}
+                                title={t(language, "insights_button")}
+                              >
+                                {expandedMeta.has(i) ? t(language, "hide_button") : t(language, "insights_button")}
+                              </button>
+                            )}
+                            {msg.role === "agent" && msg.audioBase64 && (
+                              <button
+                                onClick={() => playingIndex === i ? stopAudio() : playAudio(msg.audioBase64!, i)}
+                                className={`text-xs px-2 py-0.5 rounded transition-colors flex items-center gap-1 ${playingIndex === i ? "bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300" : "text-gray-400 dark:text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-600"}`}
+                              >
+                                {playingIndex === i ? <><StopIcon /> {t(language, "stop_button")}</> : <><PlayIcon /> {t(language, "listen_button")}</>}
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
+                        {msg.role === "agent" && msg.metadata && expandedMeta.has(i) && (
+                          <div className="mb-3 p-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-md">
+                            <div className="font-semibold text-xs text-gray-700 dark:text-gray-300 mb-2">{t(language, "model_insights")}</div>
+                            {renderMetadata(msg.metadata)}
+                          </div>
+                        )}
+
+                        {msg.role === "agent" ? renderMessageContent(msg.content) : (
+                          <div className="prose prose-sm dark:prose-invert max-w-none prose-p:my-1">
+                            <p className="whitespace-pre-wrap">{msg.content}</p>
+                          </div>
+                        )}
+                      </div>
+                    )
+                  )
+                )}
+                {loadingText && (
+                  <div className="bg-gray-50 dark:bg-gray-700/50 p-3 rounded-lg mr-auto w-5/6 md:w-3/4 text-gray-400 animate-pulse flex items-center gap-2 text-sm">
+                    {loadingText}
+                  </div>
+                )}
+                <div ref={chatEndRef} />
+              </div>
+
+              <form onSubmit={handleAsk} className="border-t border-gray-100 dark:border-gray-700">
+                {/* Image file preview */}
+                {imageFile && (
+                  <div className="text-xs text-blue-600 dark:text-blue-400 flex justify-between items-center bg-blue-50 dark:bg-blue-900/20 px-4 py-1.5 border-b border-gray-100 dark:border-gray-700">
+                    <span className="truncate">{imageFile.name}</span>
+                    <button type="button" onClick={() => { setImageFile(null); if (fileInputRef.current) fileInputRef.current.value = ""; }} className="text-red-400 hover:text-red-600 ml-2">&times;</button>
+                  </div>
+                )}
+
+                {/* Text input */}
+                <input
+                  type="text"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder={isRecording ? t(language, "recording") : t(language, "placeholder")}
+                  className="w-full px-4 py-3 text-gray-800 dark:text-gray-200 bg-transparent focus:outline-none text-sm"
+                  disabled={loading}
+                />
+
+                {/* Action buttons row */}
+                <div className="flex items-center gap-1 px-3 py-1.5 border-t border-gray-50 dark:border-gray-700/50">
+                  <button
+                    type="button"
+                    onMouseDown={startRecording}
+                    onMouseUp={stopRecording}
+                    onMouseLeave={() => { if (isRecording) stopRecording(); }}
+                    onTouchStart={startRecording}
+                    onTouchEnd={stopRecording}
+                    className={`p-2 rounded-full transition-colors ${isRecording ? "bg-red-500 text-white animate-pulse" : "text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"}`}
+                    title={t(language, "hold_to_record")}
+                  >
+                    <MicIcon />
+                  </button>
+
+                  <input type="file" accept="image/*" ref={fileInputRef} onChange={handleFileChange} className="hidden" />
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="p-2 rounded-full text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                    title={t(language, "attach_image")}
+                  >
+                    <ImageIcon />
+                  </button>
+
+                  <div className="flex-grow" />
+
+                  <button
+                    type="submit"
+                    className="p-2 rounded-full bg-green-600 text-white hover:bg-green-700 disabled:opacity-30 disabled:hover:bg-green-600 transition-colors"
+                    disabled={loading || (!query.trim() && !imageFile)}
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <line x1="5" y1="12" x2="19" y2="12" />
+                      <polyline points="12 5 19 12 12 19" />
+                    </svg>
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
         </div>
       </main>
     </div>

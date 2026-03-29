@@ -51,7 +51,8 @@ export type LangKey =
   | "drone_field_area"
   | "chat_history"
   | "new_chat"
-  | "delete_chat";
+  | "delete_chat"
+  | "drone_reset";
 
 const strings: Record<string, Record<LangKey, string>> = {
   "en-IN": {
@@ -106,6 +107,7 @@ const strings: Record<string, Record<LangKey, string>> = {
     chat_history: "Chat History",
     new_chat: "New Chat",
     delete_chat: "Delete chat",
+    drone_reset: "Reset",
   },
   "hi-IN": {
     title: "किसान AI - कृषि सलाहकार",
@@ -159,6 +161,7 @@ const strings: Record<string, Record<LangKey, string>> = {
     chat_history: "चैट इतिहास",
     new_chat: "नई चैट",
     delete_chat: "चैट हटाएं",
+    drone_reset: "रीसेट",
   },
   "mr-IN": {
     title: "किसान AI - कृषी सल्लागार",
@@ -212,6 +215,7 @@ const strings: Record<string, Record<LangKey, string>> = {
     chat_history: "चॅट इतिहास",
     new_chat: "नवीन चॅट",
     delete_chat: "चॅट हटवा",
+    drone_reset: "रीसेट",
   },
   "te-IN": {
     title: "కిసాన్ AI - వ్యవసాయ సలహాదారు",
@@ -265,6 +269,7 @@ const strings: Record<string, Record<LangKey, string>> = {
     chat_history: "చాట్ చరిత్ర",
     new_chat: "కొత్త చాట్",
     delete_chat: "చాట్ తొలగించు",
+    drone_reset: "రీసెట్",
   },
 };
 
