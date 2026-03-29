@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import { ChatSession } from "./useChatSessions";
 import { t } from "@/app/i18n";
 
@@ -8,6 +7,8 @@ interface ChatSidebarProps {
   sessions: ChatSession[];
   activeSessionId: string | null;
   language: string;
+  isOpen: boolean;
+  onToggle: () => void;
   onNewChat: () => void;
   onSwitchSession: (id: string) => void;
   onDeleteSession: (id: string) => void;
@@ -29,11 +30,12 @@ export default function ChatSidebar({
   sessions,
   activeSessionId,
   language,
+  isOpen,
+  onToggle,
   onNewChat,
   onSwitchSession,
   onDeleteSession,
 }: ChatSidebarProps) {
-  const [isOpen, setIsOpen] = useState(false);
 
   const sidebarContent = (
     <div className="flex flex-col h-full">
@@ -95,32 +97,11 @@ export default function ChatSidebar({
 
   return (
     <>
-      {/* Toggle button — always visible */}
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="fixed top-4 left-4 z-50 bg-green-800 text-white p-2 rounded-lg shadow-lg hover:bg-green-700 transition-colors"
-      >
-        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          {isOpen ? (
-            <>
-              <line x1="18" y1="6" x2="6" y2="18" />
-              <line x1="6" y1="6" x2="18" y2="18" />
-            </>
-          ) : (
-            <>
-              <line x1="3" y1="6" x2="21" y2="6" />
-              <line x1="3" y1="12" x2="21" y2="12" />
-              <line x1="3" y1="18" x2="21" y2="18" />
-            </>
-          )}
-        </svg>
-      </button>
-
-      {/* Overlay backdrop (mobile only) */}
+      {/* Overlay backdrop */}
       {isOpen && (
         <div
-          className="md:hidden fixed inset-0 bg-black/40 z-30"
-          onClick={() => setIsOpen(false)}
+          className="fixed inset-0 bg-black/40 z-30"
+          onClick={onToggle}
         />
       )}
 
@@ -133,8 +114,19 @@ export default function ChatSidebar({
           ${isOpen ? "translate-x-0" : "-translate-x-full"}
         `}
       >
-        {/* Spacer so content doesn't hide behind the toggle button */}
-        <div className="h-14" />
+        {/* Close button inside sidebar */}
+        <div className="flex justify-end p-3">
+          <button
+            onClick={onToggle}
+            className="p-1.5 rounded-lg text-green-300 hover:text-white hover:bg-green-700 transition-colors"
+            title="Close"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+        </div>
         {sidebarContent}
       </aside>
     </>
