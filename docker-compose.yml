@@ -32,8 +32,6 @@ services:
       - OLLAMA_BASE_URL=http://host.docker.internal:11435
     extra_hosts:
       - host.docker.internal:host-gateway
-    volumes:
-      - chroma_data:/app/chroma_db
 
   frontend:
     build:
@@ -48,4 +46,3 @@ services:
 volumes:
   caddy_data:
   caddy_config:
-  chroma_data:

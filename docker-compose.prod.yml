@@ -11,17 +11,12 @@ services:
     image: caddy:2-alpine
     restart: unless-stopped
     ports:
-      - "80:80"
-      - "443:443"
+      - "8080:8080"
     volumes:
-      - ./infrastructure/Caddyfile:/etc/caddy/Caddyfile
+      - ./infrastructure/Caddyfile.prod:/etc/caddy/Caddyfile
       - caddy_data:/data
-      - caddy_config:/config
-    environment:
-      - DOMAIN=${DOMAIN:-localhost}
     depends_on:
       - backend
-      - frontend
 
   backend:
     build:
@@ -36,24 +31,8 @@ services:
       - OLLAMA_BASE_URL=http://host.docker.internal:11434
     extra_hosts:
       - host.docker.internal:host-gateway
-    volumes:
-      - chroma_data:/app/chroma_db
     depends_on:
       - ollama-relay
 
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-    restart: unless-stopped
-    expose:
-      - "3000"
-    environment:
-      - NEXT_PUBLIC_API_URL=https://${DOMAIN:-localhost}/api
-    depends_on:
-      - backend
-
 volumes:
   caddy_data:
-  caddy_config:
-  chroma_data:

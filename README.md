@@ -196,7 +196,7 @@ bun run dev
 
 Open http://localhost:3000
 
-### 4. Docker Deployment
+### 4. Docker Deployment (Local Dev)
 
 ```bash
 # Start all services (Caddy + backend + frontend + Ollama relay)
@@ -215,17 +215,27 @@ This starts 4 containers:
 
 > Ollama must be running on the host. The socat relay bridges `127.0.0.1:11434` into the container network.
 
-### 5. Vercel Deployment (Frontend)
+### 5. Production Deployment (VPS + Vercel)
 
-1. Push your repo to GitHub
-2. Import the project in [vercel.com](https://vercel.com) → set the **Root Directory** to `frontend`
-3. Add the environment variable:
-   ```
-   NEXT_PUBLIC_API_URL=https://your-backend-domain.com
-   ```
-4. Deploy — Vercel auto-detects Next.js and handles bundling
+Production uses **Vercel** for the frontend and a **VPS** for the backend. The backend is exposed via **Cloudflare Tunnel** (handles SSL, no open ports needed). The prod compose file (`docker-compose.prod.yml`) runs only the backend stack — no frontend container.
 
-> **Note**: `output: "standalone"` in `next.config.ts` must be **commented out** for Vercel (it's serverless, not containerized). The line is commented out by default — only uncomment it for Docker builds.
+```bash
+# On your VPS
+cp backend/.env.example backend/.env   # configure LLM provider + API keys
+docker compose -f docker-compose.prod.yml up -d --build
+```
+
+This starts 3 containers:
+- **ollama-relay** — socat bridge to host Ollama
+- **backend** — FastAPI on port 8000
+- **caddy** — Reverse proxy on `:8080` (Cloudflare Tunnel points here)
+
+For the frontend, deploy to Vercel:
+1. Import the project in [vercel.com](https://vercel.com) → set **Root Directory** to `frontend`
+2. Add env var: `NEXT_PUBLIC_API_URL=https://your-backend-domain.com`
+3. Deploy
+
+> **Note**: `output: "standalone"` in `next.config.ts` must be **commented out** for Vercel — it's commented out by default, only uncomment for Docker builds.
 
 ### 6. SMS Setup (TextBee)
 
