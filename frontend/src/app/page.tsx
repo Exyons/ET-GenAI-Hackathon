@@ -9,8 +9,32 @@ import ChatSidebar from "@/components/chat/ChatSidebar";
 
 const DroneSimulatorScene = dynamic(
   () => import("@/components/drone-simulator/DroneSimulatorScene"),
-  { ssr: false, loading: () => <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md w-full mx-auto max-w-4xl min-h-[400px] flex items-center justify-center text-gray-400">Loading 3D simulator...</div> }
+  {
+    ssr: false,
+    loading: () => (
+      <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md w-full mx-auto max-w-4xl min-h-[400px] flex items-center justify-center text-gray-400">
+        Loading 3D simulator...
+      </div>
+    ),
+  }
 );
+
+// WebGL availability check — prevents crash on environments without GPU
+function DronePanel({ language }: { language: string }) {
+  const [webglOk, setWebglOk] = useState<boolean | null>(null);
+  useEffect(() => {
+    try {
+      const canvas = document.createElement("canvas");
+      const gl = canvas.getContext("webgl2") || canvas.getContext("webgl");
+      setWebglOk(!!gl);
+    } catch {
+      setWebglOk(false);
+    }
+  }, []);
+  if (webglOk === null) return <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md w-full mx-auto max-w-4xl min-h-[400px] flex items-center justify-center text-gray-400">Loading 3D simulator...</div>;
+  if (!webglOk) return <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md w-full mx-auto max-w-4xl min-h-[400px] flex items-center justify-center text-gray-500">WebGL is not available in this environment. Open this page in a browser with GPU support to use the drone simulator.</div>;
+  return <DroneSimulatorScene language={language} />;
+}
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
 
@@ -627,7 +651,7 @@ export default function Home() {
         </div>
 
         {/* 3D Drone Survey Panel */}
-        {activeTab === "drone" && <DroneSimulatorScene language={language} />}
+        {activeTab === "drone" && <DronePanel language={language} />}
 
         {/* Chat Panel */}
         <div className={`bg-white dark:bg-gray-800 p-4 md:p-6 rounded-lg shadow-md w-full mx-auto max-w-2xl min-h-[400px] flex flex-col ${activeTab !== "chat" ? "hidden" : ""}`}>
