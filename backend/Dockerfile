@@ -18,8 +18,8 @@ RUN uv sync --frozen --no-dev
 # Copy application code and data
 COPY . .
 
-# Pre-download the default embedding model (all-MiniLM-L6-v2) so it's cached in the image
-RUN uv run python -c "from chromadb.utils.embedding_functions import DefaultEmbeddingFunction; DefaultEmbeddingFunction()(['warmup']); print('Embedding model cached: all-MiniLM-L6-v2')"
+# Ingest ICAR data into ChromaDB (downloads embedding model + builds vector DB)
+RUN uv run python -m agri_agent_backend.ingest
 
 EXPOSE 8000
 
