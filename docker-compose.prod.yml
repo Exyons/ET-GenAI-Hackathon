@@ -3,7 +3,7 @@ services:
     image: alpine/socat:latest
     network_mode: host
     restart: unless-stopped
-    command: TCP-LISTEN:11434,fork,bind=0.0.0.0 TCP-CONNECT:127.0.0.1:11434
+    command: TCP-LISTEN:11435,fork,reuseaddr TCP-CONNECT:127.0.0.1:11434
     extra_hosts:
       - host.docker.internal:host-gateway
 
@@ -28,7 +28,7 @@ services:
     env_file:
       - ./backend/.env
     environment:
-      - OLLAMA_BASE_URL=http://host.docker.internal:11434
+      - OLLAMA_BASE_URL=http://host.docker.internal:11435
     extra_hosts:
       - host.docker.internal:host-gateway
     depends_on:
