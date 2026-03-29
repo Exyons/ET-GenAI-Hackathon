@@ -25,7 +25,7 @@ A domain-specialized AI agent that provides real-time agricultural advice to Ind
                     │  Intent Classifier     │
                     │  Vision Validator      │
                     │  ChromaDB RAG (ICAR)   │
-                    │  Ollama LLM (EN only)  │
+                    │  LLM (Ollama/OpenRouter)│
                     │  gTTS / faster-whisper │
                     │  Drone Simulator       │
                     └────────────────────────┘
@@ -41,9 +41,9 @@ A domain-specialized AI agent that provides real-time agricultural advice to Ind
 ### AI Pipeline
 - **Translation**: `deep-translator` (Google Translate) — LLM only works in English
 - **Intent Classification**: Rejects non-agricultural queries before reaching the LLM
-- **Vision**: Farm image validation + crop disease symptom extraction via VLM
+- **Vision**: Farm image validation + crop disease symptom extraction via VLM (Ollama or OpenRouter)
 - **RAG**: 221 chunks from 16 ICAR advisory documents covering 22 crops in ChromaDB
-- **LLM**: Ollama-hosted models generate English responses grounded in RAG context
+- **LLM**: Ollama (local) or OpenRouter (cloud) — text and vision providers selectable independently
 - **TTS/STT**: `gTTS` for text-to-speech, `faster-whisper` for speech-to-text
 
 ### Multi-Language Support
@@ -70,8 +70,8 @@ Comprehensive advisories covering:
 |-----------|-----------|
 | Backend | Python 3.11, FastAPI, SSE streaming |
 | Frontend | Next.js 16, React 19, TypeScript, Tailwind CSS, React Three Fiber |
-| LLM | Ollama (configurable model) |
-| Vision | Ollama VLM (configurable model) |
+| LLM | Ollama (local) or OpenRouter (cloud) — independently configurable |
+| Vision | Ollama VLM or OpenRouter vision — independently configurable |
 | Vector DB | ChromaDB with sentence-transformers embeddings |
 | Translation | deep-translator (Google Translate API) |
 | TTS | gTTS (Google Text-to-Speech) |
@@ -87,6 +87,7 @@ Comprehensive advisories covering:
 ```
 ├── backend/
 │   ├── src/agri_agent_backend/
+│   │   ├── llm.py            # LLM provider abstraction (Ollama + OpenRouter)
 │   │   ├── agent.py          # Core AI pipeline (translate, intent, RAG, LLM, TTS, STT)
 │   │   ├── api.py            # FastAPI endpoints (chat, image, STT, SMS, WhatsApp, drone)
 │   │   ├── drone.py          # Drone survey simulator + spray plan generator
@@ -139,11 +140,28 @@ cp backend/.env.example backend/.env
 
 Edit `backend/.env`:
 ```env
+# LLM Provider — "ollama" or "openrouter" (independent for text and vision)
+LLM_PROVIDER=ollama
+VISION_LLM_PROVIDER=ollama
+
+# Ollama (when using ollama provider)
 OLLAMA_BASE_URL=http://localhost:11434
 OLLAMA_MODEL=llama3.1
 OLLAMA_VISION_MODEL=llama3.2-vision
+
+# OpenRouter (when using openrouter provider)
+OPENROUTER_API_KEY=sk-or-xxxxxxxx
+OPENROUTER_MODEL=google/gemini-2.5-flash-preview
+OPENROUTER_VISION_MODEL=google/gemini-2.5-flash-preview
+
 WHISPER_TTS_MODEL=small
 DEBUG_MODE=true
+```
+
+You can mix providers — e.g. text from OpenRouter, vision from Ollama:
+```env
+LLM_PROVIDER=openrouter
+VISION_LLM_PROVIDER=ollama
 ```
 
 ### 2. Backend Setup
@@ -277,10 +295,14 @@ Farmers can text these commands:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
+| `LLM_PROVIDER` | `ollama` | Text LLM provider — `ollama` or `openrouter` |
+| `VISION_LLM_PROVIDER` | (same as `LLM_PROVIDER`) | Vision LLM provider — `ollama` or `openrouter` |
 | `OLLAMA_BASE_URL` | `http://localhost:11434` | Ollama API endpoint |
-| `OLLAMA_MODEL` | `llama3.1` | LLM model for text generation |
-| `OLLAMA_VISION_MODEL` | `llama3.2-vision` | VLM model for image analysis |
-| `CHROMA_EMBEDDING_MODEL` | `all-MiniLM-L6-v2` | Sentence transformer for embeddings |
+| `OLLAMA_MODEL` | `llama3.1` | Ollama model for text generation |
+| `OLLAMA_VISION_MODEL` | `llama3.2-vision` | Ollama model for image analysis |
+| `OPENROUTER_API_KEY` | — | OpenRouter API key (required when using openrouter provider) |
+| `OPENROUTER_MODEL` | `google/gemini-2.5-flash-preview` | OpenRouter model for text generation |
+| `OPENROUTER_VISION_MODEL` | `google/gemini-2.5-flash-preview` | OpenRouter model for image analysis |
 | `WHISPER_TTS_MODEL` | `small` | Whisper model size (tiny/base/small/medium/large) |
 | `DEBUG_MODE` | `false` | Enable verbose pipeline logging |
 | `SECRET_API_KEY` | `dev_secret_key_123` | API authentication key |
