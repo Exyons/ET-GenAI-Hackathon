@@ -55,6 +55,29 @@ def sse_event(data: dict) -> str:
     return f"data: {json.dumps(data)}\n\n"
 
 
+@app.get("/api/health")
+async def healthcheck():
+    """Service healthcheck — connectivity and provider status."""
+    ollama_ok = False
+    try:
+        ollama_client.list()
+        ollama_ok = True
+    except Exception:
+        pass
+
+    return {
+        "status": "ok",
+        "ollama": ollama_ok,
+        "ollama_model": OLLAMA_MODEL,
+        "debug_mode": DEBUG_MODE,
+        "sms": {
+            "textbee": textbee_available(),
+            "twilio": twilio_available(),
+        },
+        "whatsapp": bool(os.environ.get("META_WHATSAPP_TOKEN")),
+    }
+
+
 @app.post("/api/ask_stream")
 async def ask_agent_stream(req: QueryRequest):
     """Streaming endpoint. LLM works in English; translation handled by deep-translator."""

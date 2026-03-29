@@ -187,6 +187,8 @@ docker compose up -d
 # Access at http://localhost:8080
 ```
 
+> **Important**: Docker deployment requires `output: "standalone"` in `frontend/next.config.ts`. Uncomment the line before building the Docker image.
+
 This starts 4 containers:
 - **ollama-relay** — socat bridge forwarding to host Ollama (`127.0.0.1:11434`)
 - **backend** — FastAPI on port 8000
@@ -195,7 +197,19 @@ This starts 4 containers:
 
 > Ollama must be running on the host. The socat relay bridges `127.0.0.1:11434` into the container network.
 
-### 5. SMS Setup (TextBee)
+### 5. Vercel Deployment (Frontend)
+
+1. Push your repo to GitHub
+2. Import the project in [vercel.com](https://vercel.com) → set the **Root Directory** to `frontend`
+3. Add the environment variable:
+   ```
+   NEXT_PUBLIC_API_URL=https://your-backend-domain.com
+   ```
+4. Deploy — Vercel auto-detects Next.js and handles bundling
+
+> **Note**: `output: "standalone"` in `next.config.ts` must be **commented out** for Vercel (it's serverless, not containerized). The line is commented out by default — only uncomment it for Docker builds.
+
+### 6. SMS Setup (TextBee)
 
 TextBee uses your Android phone as an SMS gateway (free tier: 50 SMS/day).
 
@@ -211,10 +225,33 @@ TextBee uses your Android phone as an SMS gateway (free tier: 50 SMS/day).
 
 Twilio works as automatic fallback if TextBee is not configured or fails.
 
+### 7. WhatsApp Setup (Meta Business API)
+
+1. Go to [developers.facebook.com](https://developers.facebook.com) → Create a new app → select **Business** type
+2. Add the **WhatsApp** product to your app
+3. From the WhatsApp dashboard, copy your credentials and add to `backend/.env`:
+   ```env
+   META_WHATSAPP_TOKEN=EAAxxxxxx          # Temporary access token (24h) or permanent token
+   META_VERIFY_TOKEN=kisan_ai_verify_2024  # Your chosen verify token
+   META_PHONE_NUMBER_ID=1234567890         # Phone Number ID from dashboard
+   ```
+4. Configure webhook in Meta dashboard (WhatsApp → Configuration):
+   - **Callback URL**: `https://your-domain/api/whatsapp/webhook`
+   - **Verify Token**: `kisan_ai_verify_2024` (must match your `.env`)
+   - Subscribe to the **messages** field
+5. For local development, use [ngrok](https://ngrok.com) to expose your backend:
+   ```bash
+   ngrok http 8000
+   # Use the ngrok HTTPS URL as your callback URL
+   ```
+
+The free test setup allows up to 5 whitelisted recipient numbers — enough for hackathon demos. WhatsApp supports text, image (crop disease diagnosis), and voice messages.
+
 ## API Endpoints
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
+| GET | `/api/health` | Healthcheck — returns service status, Ollama connectivity, and provider config |
 | POST | `/api/ask_stream` | Text query → SSE stream (translate → intent → RAG → LLM → translate → TTS) |
 | POST | `/api/upload_image_stream` | Image + query → SSE stream (validate → vision → RAG → LLM → translate → TTS) |
 | POST | `/api/transcribe` | Audio file → transcribed text (faster-whisper) |
