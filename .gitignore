@@ -77,3 +77,11 @@ docker-compose.override.yml
 *.log
 *.tmp
 *.bak
+*.aux
+*.fdb_latexmk
+*.fls
+*.out
+*.synctex.gz
+*.bbl
+*.blg
+*.toc

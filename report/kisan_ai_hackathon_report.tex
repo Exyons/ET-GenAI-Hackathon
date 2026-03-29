@@ -1,0 +1,629 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[utf8]{inputenc}
+% T1 fonts are unavailable in this TeX environment; keep default OT1 for compatibility.
+% Re-enable \usepackage[T1]{fontenc} once the 'cm-super' or equivalent T1 fonts are installed.
+% \usepackage[T1]{fontenc}
+\usepackage[a4paper,margin=1in]{geometry}
+\usepackage{hyperref}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{tabularx}
+\usepackage{enumitem}
+\usepackage{float}
+\usepackage{xcolor}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=blue!60!black,
+  urlcolor=blue!60!black,
+  citecolor=blue!60!black,
+  pdftitle={Kisan AI Hackathon Report},
+  pdfauthor={ET Gen AI Hackathon Project}
+}
+
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0.55em}
+\setlist[itemize]{leftmargin=1.25em,label=-}
+
+\title{\textbf{Kisan AI}: A Multichannel Low-Connectivity Agricultural Advisory Platform for Indian Farmers}
+\author{Technical Report}
+\date{29 March 2026}
+
+\begin{document}
+
+\maketitle
+\tableofcontents
+\newpage
+
+\section{Abstract}
+
+This report presents the design and implementation of \textbf{Kisan AI}, a low-connectivity agricultural advisory platform developed for Indian farmers. The system combines a multilingual web interface, retrieval-augmented generation over agricultural guidance documents, image-assisted crop analysis, speech-based interaction, and communication channel adapters for SMS and WhatsApp. In addition to the advisory workflow, the platform includes a drone survey simulator that models an autonomous field analysis workflow in which aerial observation data can be converted into localized treatment recommendations and precision spraying plans.
+
+The implementation is organized as a Next.js frontend, a FastAPI backend, a ChromaDB-based retrieval layer, a lightweight farmer profile database, and a set of model adapters that support both local and cloud inference providers. The project is designed around a practical requirement: advisory systems for farmers must support variable connectivity, multiple languages, voice-first usage, image-based diagnosis, and transparent explanation of model behavior. The present version of the system implements these capabilities at MVP scope and establishes a direct path toward future hardware integration, production messaging rollout, and domain adaptation for Indian agricultural use cases.
+
+\section{Introduction}
+
+Agricultural decision support in India must operate under constraints that are both technical and social. Farmers may interact through smartphones, feature phones, or messaging platforms. Connectivity conditions may vary by geography and by time of day. Many farmers are more comfortable speaking than typing. Agricultural questions often depend on crop stage, visible symptoms, weather, and local advisory knowledge. These requirements motivate an AI system that is not limited to a single web chat interface and is not dependent on a single mode of interaction.
+
+Kisan AI was developed with this operating context in mind. The core objective of the project is to provide a unified advisory engine that can serve farmers through multiple channels while remaining grounded in agricultural knowledge sources. The implementation focuses on five system goals:
+
+\begin{itemize}
+  \item multilingual interaction for Indian language users,
+  \item support for text, voice, and image inputs,
+  \item retrieval-grounded responses from agricultural advisory content,
+  \item explainable pipeline outputs for transparency and debugging,
+  \item architectural extensibility toward drone-assisted autonomous field analysis.
+\end{itemize}
+
+The broader problem space is aligned with current developments in Indian digital agriculture. The Digital Agriculture Mission, approved in September 2024, defines a national direction for farmer-centric digital infrastructure and decision support systems \cite{pib-dam-2024,pib-dam-2025}. At the same time, rural access conditions continue to justify a multichannel design: TRAI reported 944.12 million broadband subscribers as of 31 March 2025, while rural teledensity remained substantially below urban teledensity at 59.06\% \cite{trai-2025}. These conditions make hybrid access models operationally relevant. The use of ICAR-derived agricultural content in the platform is also consistent with the role of ICAR and KVK networks in extension and mobile advisory delivery \cite{icar-extension}.
+
+\section{Project Overview}
+
+Kisan AI is implemented as a multicomponent system with the following major parts:
+
+\begin{itemize}
+  \item a \textbf{web application} for interactive advisory use,
+  \item a \textbf{backend API} for orchestration of AI and channel workflows,
+  \item a \textbf{knowledge layer} built from agricultural advisory documents,
+  \item a \textbf{channel access layer} for SMS and WhatsApp,
+  \item a \textbf{drone survey layer} for simulated aerial field analysis and spray planning.
+\end{itemize}
+
+The repository structure is summarized below.
+
+\begin{verbatim}
+backend/
+  main.py
+  pyproject.toml
+  chroma_db/
+  farmer_profiles.db
+  data/compliance/
+  src/agri_agent_backend/
+    api.py
+    agent.py
+    llm.py
+    sms.py
+    whatsapp.py
+    drone.py
+    farmer_db.py
+    ingest.py
+    scraper.py
+
+frontend/
+  package.json
+  src/app/
+    page.tsx
+    i18n.ts
+    layout.tsx
+    globals.css
+  src/components/chat/
+  src/components/drone-simulator/
+
+infrastructure/
+  Caddyfile
+  Caddyfile.prod
+\end{verbatim}
+
+\section{System Requirements and Design Objectives}
+
+The system was designed to satisfy the following operational requirements.
+
+\subsection{Low-Connectivity Awareness}
+
+The platform must not assume that the farmer is always using a full web session. For this reason, advisory access is not limited to the browser. The backend is implemented so that the same core reasoning pipeline can be used by the web interface, SMS interactions, and WhatsApp messages.
+
+\subsection{Multilingual Access}
+
+The frontend exposes language-specific UI strings, and the backend uses translation as part of the reasoning pipeline. This allows the internal prompt layer to remain centered on English while the user-facing interaction remains accessible in Indian languages.
+
+\subsection{Multimodal Input}
+
+The advisory pipeline must accept text, image, and speech. Text allows direct question answering. Images allow crop-condition analysis. Speech enables interaction for users who are less comfortable typing.
+
+\subsection{Knowledge Grounding}
+
+Advisory responses must be generated with explicit grounding in agricultural content rather than unrestricted model generation. The system therefore uses a retrieval layer over curated agricultural markdown documents.
+
+\subsection{Transparency}
+
+The output should not be limited to a final answer. The implementation surfaces the main stages of the pipeline, including translation, intent filtering, retrieval, generation, and timing information, so that the user interface can expose model decision metadata.
+
+\subsection{Extensibility to Autonomous Farm Analysis}
+
+The system is structured so that field observations can eventually arrive from a drone platform. The current drone simulator models that interaction path by generating survey telemetry, localized detections, and precision treatment plans over a field representation.
+
+\section{Overall Architecture}
+
+\subsection{Logical Architecture}
+
+The platform follows a channel-to-core pattern. User requests arrive from one of the supported interaction layers. Each request is normalized into a backend pipeline that performs translation, intent classification, retrieval, generation, and output transformation. The final answer is returned through the same channel.
+
+\begin{table}[H]
+\centering
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{0.24\textwidth} X}
+\toprule
+\textbf{Layer} & \textbf{Role} \\
+\midrule
+Frontend layer & Web-based interaction, session management, image upload, voice recording, explainability rendering, drone visualization \\
+API layer & HTTP and SSE endpoints for advisory, speech, channel webhooks, and drone operations \\
+Reasoning layer & Translation, intent classification, RAG retrieval, vision analysis, text generation, TTS and STT integration \\
+Knowledge layer & ChromaDB vector collection built from agricultural markdown advisories \\
+Messaging layer & SMS and WhatsApp adapters with channel-specific parsing and dispatch \\
+Simulation layer & Drone mission generation, telemetry events, zone detections, and spray planning \\
+\bottomrule
+\end{tabularx}
+\caption{Logical architecture of the system.}
+\end{table}
+
+\subsection{Technology Stack}
+
+\begin{table}[H]
+\centering
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{0.28\textwidth} X}
+\toprule
+\textbf{Component} & \textbf{Technology} \\
+\midrule
+Frontend & Next.js 16, React 19, TypeScript, Tailwind CSS, React Three Fiber, Drei, Postprocessing \\
+Backend & Python 3.11, FastAPI, Uvicorn \\
+Model integration & Ollama, OpenRouter, HTTPX \\
+Retrieval & ChromaDB with default embedding function \\
+Translation & \texttt{deep-translator} \\
+Text-to-speech & \texttt{gTTS} \\
+Speech-to-text & \texttt{faster-whisper} \\
+Messaging & TextBee, Twilio, Meta WhatsApp Cloud API \\
+Persistence & SQLite, browser localStorage \\
+Deployment & Docker Compose, Caddy, \texttt{socat} relay for host Ollama access \\
+\bottomrule
+\end{tabularx}
+\caption{Primary technologies used in the implementation.}
+\end{table}
+
+\section{Backend Implementation}
+
+\subsection{API Entry Points}
+
+The FastAPI application is defined in \texttt{backend/src/agri\_agent\_backend/api.py}. The major endpoints are:
+
+\begin{itemize}
+  \item \texttt{/api/health} for service and provider status,
+  \item \texttt{/api/ask\_stream} for streaming text advisory responses,
+  \item \texttt{/api/upload\_image\_stream} for image-assisted crop analysis,
+  \item \texttt{/api/transcribe} for speech-to-text,
+  \item \texttt{/api/sms/textbee/webhook} and \texttt{/api/sms/twilio/webhook} for inbound SMS,
+  \item \texttt{/api/sms/status} for SMS provider readiness,
+  \item \texttt{/api/whatsapp/webhook} for WhatsApp verification and message handling,
+  \item \texttt{/api/drone/survey} for survey event streaming,
+  \item \texttt{/api/drone/spray\_plan} for precision spray plan generation.
+\end{itemize}
+
+The advisory endpoints are implemented as server-sent event streams so that partial results and stage metadata can be delivered progressively to the web client.
+
+\subsection{Core Advisory Pipeline}
+
+The main orchestration logic is implemented in \texttt{backend/src/agri\_agent\_backend/agent.py}. The text advisory path performs the following sequence:
+
+\begin{enumerate}
+  \item resolve user language,
+  \item translate the input into English,
+  \item run an agriculture-specific intent check,
+  \item retrieve supporting advisory chunks from ChromaDB,
+  \item construct an English prompt with retrieved context,
+  \item generate an answer through the configured text model,
+  \item translate the answer into the user language,
+  \item optionally synthesize audio.
+\end{enumerate}
+
+The prompt enforces a constrained-answer policy. If retrieved context is insufficient or a banned-chemical request is detected, the response is directed to a safe fallback recommending consultation with local agricultural authorities. This design keeps the generated answer tied to the knowledge base rather than unrestricted model completion.
+
+\subsection{Model Provider Abstraction}
+
+The provider abstraction is implemented in \texttt{backend/src/agri\_agent\_backend/llm.py}. Text and vision providers are configured independently. This makes it possible to run:
+
+\begin{itemize}
+  \item text on Ollama and vision on Ollama,
+  \item text on OpenRouter and vision on OpenRouter,
+  \item text on one provider and vision on the other.
+\end{itemize}
+
+The abstraction exposes:
+
+\begin{itemize}
+  \item \texttt{chat()} for text prompts,
+  \item \texttt{chat\_vision()} for image prompts,
+  \item provider and model inspection for health reporting.
+\end{itemize}
+
+This separation keeps the backend independent of any single inference host and allows the platform to adapt to local-device inference, cloud inference, or a hybrid deployment.
+
+\subsection{Speech Processing}
+
+Speech-to-text is implemented with \texttt{faster-whisper}. The backend lazily loads the Whisper model so that startup cost is deferred until speech processing is actually required. Audio is received as a file, written temporarily, and transcribed server-side.
+
+Text-to-speech is implemented with \texttt{gTTS}. Before synthesis, the response text is cleaned to remove prompt artifacts, markdown syntax, and unsupported formatting so that the spoken output remains natural.
+
+\section{Knowledge Layer and Retrieval Pipeline}
+
+\subsection{Knowledge Source Format}
+
+The agricultural knowledge base is stored in markdown under \texttt{backend/data/compliance/}. The checked-in repository contains 16 domain documents covering crop advisories, disease notes, water and soil management, government schemes, and banned chemicals.
+
+\subsection{Ingestion}
+
+The ingestion pipeline is implemented in \texttt{backend/src/agri\_agent\_backend/ingest.py}. Each markdown file is split into semantically meaningful chunks using section headers. The chunker follows a hierarchical strategy:
+
+\begin{itemize}
+  \item split by major headers,
+  \item split oversized sections by subheaders,
+  \item split oversized sub-sections by paragraphs.
+\end{itemize}
+
+Metadata is added to each chunk, including:
+
+\begin{itemize}
+  \item source filename,
+  \item section label,
+  \item crop tags inferred from content,
+  \item advisory category tags inferred from content.
+\end{itemize}
+
+The ingested collection is stored in ChromaDB as \texttt{agri\_compliance}. The current repository state contains 221 indexed chunks.
+
+\subsection{Retrieval}
+
+At query time, the backend requests the top three matching documents from ChromaDB and converts distances into normalized scores for display. These scores, along with source names and previews, are passed to the frontend as explainability metadata.
+
+\subsection{Document Refresh Pipeline}
+
+The scraper in \texttt{backend/src/agri\_agent\_backend/scraper.py} supports acquisition of new agricultural documents from curated web sources. It fetches HTML pages, converts them into markdown, and writes them into the compliance data directory. PDF download is also supported so that document acquisition and later extraction can be integrated into the knowledge update workflow.
+
+\section{Frontend Implementation}
+
+\subsection{Main Advisory Interface}
+
+The main interface is implemented in \texttt{frontend/src/app/page.tsx}. It supports:
+
+\begin{itemize}
+  \item text input for agricultural questions,
+  \item microphone-based recording for speech input,
+  \item image upload for crop analysis,
+  \item streamed response rendering,
+  \item optional audio playback of generated answers,
+  \item display of pipeline metadata,
+  \item session switching and history persistence.
+\end{itemize}
+
+The web client uses server-sent event parsing to receive:
+
+\begin{itemize}
+  \item intermediate stage notifications,
+  \item stage metadata,
+  \item text chunks,
+  \item generated audio,
+  \item total pipeline duration.
+\end{itemize}
+
+\subsection{Language Support}
+
+The frontend language strings are defined in \texttt{frontend/src/app/i18n.ts}. The current web interface ships with:
+
+\begin{itemize}
+  \item English,
+  \item Hindi,
+  \item Marathi,
+  \item Telugu.
+\end{itemize}
+
+The backend language map extends beyond these UI languages and includes additional Indian languages for translation and speech handling.
+
+\subsection{Session Persistence}
+
+Chat session management is implemented in \texttt{frontend/src/components/chat/useChatSessions.ts}. Sessions are stored in browser localStorage and track:
+
+\begin{itemize}
+  \item session identifier,
+  \item title,
+  \item language,
+  \item message history,
+  \item creation and update timestamps.
+\end{itemize}
+
+This design provides continuity in the browser while keeping the MVP free of authentication and account-management complexity.
+
+\subsection{Explainability Rendering}
+
+Each advisory response may include metadata for:
+
+\begin{itemize}
+  \item input translation,
+  \item intent classification,
+  \item image validation,
+  \item vision analysis,
+  \item RAG document scores and sources,
+  \item generation timing,
+  \item response translation,
+  \item TTS timing,
+  \item total pipeline duration.
+\end{itemize}
+
+This information is rendered in the frontend so that the advisory output is accompanied by the corresponding system trace.
+
+\section{Multichannel Access Layer}
+
+\subsection{SMS Access}
+
+The SMS logic is implemented in \texttt{backend/src/agri\_agent\_backend/sms.py}. Two transports are supported:
+
+\begin{itemize}
+  \item \textbf{TextBee} as the primary transport,
+  \item \textbf{Twilio} as the fallback transport.
+\end{itemize}
+
+The module supports:
+
+\begin{itemize}
+  \item inbound message handling,
+  \item HMAC verification for TextBee webhooks,
+  \item language command parsing,
+  \item help command responses,
+  \item synchronous execution of the advisory pipeline,
+  \item outbound SMS dispatch through the available provider.
+\end{itemize}
+
+This design allows the same advisory logic used by the web application to be reused for feature-phone and keypad-phone workflows.
+
+\subsection{WhatsApp Access}
+
+The WhatsApp logic is implemented in \texttt{backend/src/agri\_agent\_backend/whatsapp.py} using the Meta WhatsApp Business Cloud API. The module supports:
+
+\begin{itemize}
+  \item webhook verification,
+  \item text message handling,
+  \item image message handling,
+  \item audio and voice note handling,
+  \item media download,
+  \item response dispatch.
+\end{itemize}
+
+For image messages, the backend validates whether the image is agricultural and then extracts symptoms before invoking the retrieval-grounded advisory path. For audio messages, the backend transcribes speech and then reuses the same text advisory path.
+
+\section{Farmer Profile and Logging Layer}
+
+The farmer persistence layer is implemented in \texttt{backend/src/agri\_agent\_backend/farmer\_db.py}. SQLite is used to store:
+
+\begin{itemize}
+  \item farmer phone number,
+  \item preferred language,
+  \item preferred access channel,
+  \item registration and last activity timestamps,
+  \item message history with optional pipeline metadata.
+\end{itemize}
+
+This database supports continuity for messaging users and enables future extension into interaction analytics, personalization, and audit logging.
+
+\section{Drone Survey Module}
+
+\subsection{Motivation}
+
+The drone module was introduced to represent a future operating mode for the platform in which farm observation becomes partially autonomous. In this mode, the farmer does not need to manually describe every symptom. Instead, a drone can survey the field, return observations, and trigger the advisory engine on behalf of the farmer. This direction is relevant in the Indian context because agricultural drones are increasingly being adopted for spraying and related operations \cite{pib-drone-didi}.
+
+\subsection{Current Implementation}
+
+The current implementation is split across backend simulation logic and frontend visualization.
+
+The backend drone logic is implemented in \texttt{backend/src/agri\_agent\_backend/drone.py}. It includes:
+
+\begin{itemize}
+  \item \texttt{DroneSimulator} for generating a lawnmower survey path,
+  \item telemetry events for position, heading, altitude, speed, battery, and progress,
+  \item per-waypoint zone detections,
+  \item mission summary generation,
+  \item treatment recommendation generation,
+  \item precision spray plan generation over affected zones.
+\end{itemize}
+
+The frontend drone module is implemented in \texttt{frontend/src/components/drone-simulator/}. It includes:
+
+\begin{itemize}
+  \item a 3D field scene,
+  \item drone model rendering,
+  \item flight path visualization,
+  \item detection markers,
+  \item heatmap overlay,
+  \item telemetry HUD,
+  \item spray effect visualization,
+  \item mission summary and spray plan display.
+\end{itemize}
+
+\subsection{Survey Flow}
+
+The drone survey endpoint streams the mission through SSE. The frontend hook in \texttt{useDroneSurveySSE.ts} reads these events and updates the scene state. The mission flow is:
+
+\begin{enumerate}
+  \item mission start,
+  \item takeoff,
+  \item telemetry updates while traversing waypoints,
+  \item zone detections during the mission,
+  \item return-to-launch stage,
+  \item mission completion summary,
+  \item optional precision spray plan request.
+\end{enumerate}
+
+\subsection{Precision Spray Planning}
+
+The precision spray planner aggregates all non-healthy detections, groups them by condition, estimates affected area, and emits a mission list that targets only the necessary zones. The frontend visualizes this plan and reports estimated chemical savings relative to blanket spraying. This models a practical farm operation in which field treatment is localized rather than uniform.
+
+\subsection{Current Scope of the Drone Module}
+
+The present drone module represents a simulated survey environment and treatment workflow. The mission detections are generated from predefined agricultural scenarios within the simulator. The advisory engine, image pipeline, and drone module are therefore implemented as connected architectural pieces, while live aerial image capture and live sensor ingestion remain a future integration step.
+
+\section{Current Implemented Capabilities}
+
+The repository currently implements the following platform features.
+
+\begin{table}[H]
+\centering
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{0.34\textwidth} X}
+\toprule
+\textbf{Feature} & \textbf{Implementation Status} \\
+\midrule
+Streaming advisory responses in web UI & Implemented \\
+Multilingual UI rendering & Implemented \\
+Translation to and from English for advisory reasoning & Implemented \\
+Agricultural intent filtering & Implemented \\
+RAG over agricultural advisory documents & Implemented \\
+Image validation and symptom extraction & Implemented \\
+Speech-to-text input in web UI & Implemented \\
+Text-to-speech output in web UI & Implemented \\
+Chat history persistence in browser & Implemented \\
+SMS integration path through TextBee and Twilio & Implemented in code \\
+WhatsApp text, image, and audio handling path & Implemented in code \\
+Drone mission simulation and visualization & Implemented \\
+Precision spray planning from simulated detections & Implemented \\
+\bottomrule
+\end{tabularx}
+\caption{Current implemented system capabilities.}
+\end{table}
+
+\section{Deployment Model}
+
+The deployment configuration is defined through Docker Compose and Caddy.
+
+\subsection{Local Development Stack}
+
+The local stack includes:
+
+\begin{itemize}
+  \item backend container,
+  \item frontend container,
+  \item Caddy reverse proxy,
+  \item \texttt{socat} relay to expose a host-side Ollama instance inside the container network.
+\end{itemize}
+
+This allows the platform to use local model inference while keeping the web and API layers containerized.
+
+\subsection{Production-Oriented Stack}
+
+The production compose file is designed around a backend deployment in which the frontend may be hosted separately. In that mode, Caddy routes API traffic to the backend service, and the frontend can be served by another hosting platform.
+
+\section{Future Work}
+
+The implementation establishes a direct path toward the following next steps.
+
+\subsection{WhatsApp Voice Workflow in Production}
+
+The backend already supports audio and voice-note processing for WhatsApp payloads. The next step is end-to-end production provisioning so that voice-note based farmer interaction can be demonstrated and deployed through a provisioned business account.
+
+\subsection{Commercial SMS Rollout}
+
+The SMS abstraction already supports a migration path from SIM-based TextBee testing to Twilio-based large-scale delivery. The next step is activation of a paid sender route for broader outbound reach.
+
+\subsection{Real Drone Integration}
+
+The drone simulator establishes the operational workflow for autonomous field analysis. The next engineering stage is integration with actual drone hardware, geotagged image capture, and sensor streaming so that the advisory pipeline can operate on live farm observations.
+
+\subsection{Domain Adaptation of the Advisory Models}
+
+The advisory engine can be improved through domain adaptation for Indian agricultural language, crop-specific reasoning, and farmer-style queries. This may involve:
+
+\begin{itemize}
+  \item prompt and evaluation refinement,
+  \item supervised fine-tuning on curated agricultural examples,
+  \item collection of structured field interaction data,
+  \item integration of additional domain-specific corpora.
+\end{itemize}
+
+\subsection{Extended Knowledge Refresh Workflow}
+
+The scraper and ingestion path provide a base for maintaining an updated knowledge corpus. Future work can extend this into a scheduled knowledge refresh pipeline with richer source coverage and evaluation of document quality before ingestion.
+
+\section{Conclusion}
+
+Kisan AI was developed as a practical agricultural advisory system for Indian farmers under conditions of variable connectivity, multilingual usage, and multimodal interaction. The implementation combines a retrieval-grounded advisory engine with a web interface, speech support, image-based crop analysis, messaging channel adapters, and a drone survey simulation layer. The architecture allows these capabilities to share a single backend reasoning core while exposing different access modes to the user.
+
+The current system demonstrates how an agricultural assistant can be designed not only as a chat interface, but as a broader decision-support platform. The web advisory workflow, explainability metadata, speech interfaces, retrieval pipeline, channel adapters, and drone mission model together define the present MVP. The future direction of the project extends this same foundation toward production messaging rollout, real drone data integration, and further domain adaptation for Indian agriculture.
+
+\appendix
+
+\section{Appendix A: Files Used for This Report}
+
+\begin{itemize}
+  \item \texttt{README.md}
+  \item \texttt{backend/main.py}
+  \item \texttt{backend/pyproject.toml}
+  \item \texttt{backend/src/agri\_agent\_backend/api.py}
+  \item \texttt{backend/src/agri\_agent\_backend/agent.py}
+  \item \texttt{backend/src/agri\_agent\_backend/llm.py}
+  \item \texttt{backend/src/agri\_agent\_backend/sms.py}
+  \item \texttt{backend/src/agri\_agent\_backend/whatsapp.py}
+  \item \texttt{backend/src/agri\_agent\_backend/drone.py}
+  \item \texttt{backend/src/agri\_agent\_backend/farmer\_db.py}
+  \item \texttt{backend/src/agri\_agent\_backend/ingest.py}
+  \item \texttt{backend/src/agri\_agent\_backend/scraper.py}
+  \item \texttt{frontend/package.json}
+  \item \texttt{frontend/src/app/page.tsx}
+  \item \texttt{frontend/src/app/i18n.ts}
+  \item \texttt{frontend/src/components/chat/useChatSessions.ts}
+  \item \texttt{frontend/src/components/drone-simulator/DroneSimulatorScene.tsx}
+  \item \texttt{frontend/src/components/drone-simulator/hooks/useDroneSurveySSE.ts}
+  \item \texttt{frontend/src/components/drone-simulator/hooks/useSprayPlan.ts}
+  \item \texttt{docker-compose.yml}
+  \item \texttt{docker-compose.prod.yml}
+  \item \texttt{infrastructure/Caddyfile}
+  \item \texttt{infrastructure/Caddyfile.prod}
+\end{itemize}
+
+\begin{thebibliography}{9}
+
+\bibitem{pib-dam-2024}
+Press Information Bureau, Government of India.
+\newblock \emph{Cabinet approves the Digital Agriculture Mission today with an outlay of Rs. 2817 Crore}.
+\newblock 2 September 2024.
+\newblock Available at: \url{https://www.pib.gov.in/PressReleasePage.aspx?PRID=2050966}.
+\newblock Accessed 29 March 2026.
+
+\bibitem{pib-dam-2025}
+Press Information Bureau, Government of India.
+\newblock \emph{Digital Identities to Farmers}.
+\newblock 2025.
+\newblock Available at: \url{https://www.pib.gov.in/PressReleseDetailm.aspx?PRID=2154178}.
+\newblock Accessed 29 March 2026.
+
+\bibitem{trai-2025}
+Telecom Regulatory Authority of India.
+\newblock \emph{Highlights of Telecom Subscription Data as on 31st March, 2025}.
+\newblock Press Release No. 35/2025, 7 May 2025.
+\newblock Available at: \url{https://www.trai.gov.in/sites/default/files/2025-05/PR_No.35of2025_0.pdf}.
+\newblock Accessed 29 March 2026.
+
+\bibitem{icar-extension}
+ICAR Agricultural Extension Division.
+\newblock \emph{New Initiatives by Agricultural Extension Division}.
+\newblock Available at: \url{https://icar.gov.in/hi/agricultural-extension-division/new-initiatives-agricultural-extension-division}.
+\newblock Accessed 29 March 2026.
+
+\bibitem{pib-drone-didi}
+Press Information Bureau, Government of India.
+\newblock \emph{Department of Agriculture \& Farmers' Welfare has released the Operational Guidelines of Central Sector Scheme ``NAMO DRONE DIDI''}.
+\newblock 1 November 2024.
+\newblock Available at: \url{https://www.pib.gov.in/PressReleaseIframePage.aspx?PRID=2070029}.
+\newblock Accessed 29 March 2026.
+
+\bibitem{uav-review-2024}
+I. Anam, N. Arafat, M. S. Hafiz, J. R. Jim, M. M. Kabir, and M. F. Mridha.
+\newblock \emph{A systematic review of UAV and AI integration for targeted disease detection, weed management, and pest control in precision agriculture}.
+\newblock Smart Agricultural Technology, Volume 9, 2024, Article 100647.
+\newblock Available at: \url{https://www.sciencedirect.com/science/article/pii/S2772375524002521}.
+\newblock Accessed 29 March 2026.
+
+\bibitem{uav-review-2026}
+V. Choudhary, S. P. Kumar, and V. S. Saimbhi.
+\newblock \emph{A brief review on potential applications of drones in agriculture}.
+\newblock Next Research, Volume 5, 2026, Article 101309.
+\newblock Available at: \url{https://www.sciencedirect.com/science/article/abs/pii/S3050475926000060}.
+\newblock Accessed 29 March 2026.
+
+\end{thebibliography}
+
+\end{document}
