@@ -1,5 +1,7 @@
 # Kisan AI - Agricultural Advisory Agent for Indian Farmers
 
+**Live Demo:** [https://et-genai-mvp.vercel.app](https://et-genai-mvp.vercel.app)
+
 A domain-specialized AI agent that provides real-time agricultural advice to Indian farmers through multiple channels — Web UI, SMS, and WhatsApp. Built with compliance guardrails, multi-language support, and drone-based field survey simulation.
 
 ## Architecture
