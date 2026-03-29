@@ -36,10 +36,11 @@ load_dotenv()
 
 app = FastAPI(title="Agricultural Advisory AI Agent API")
 
+_cors_origins = os.environ.get("CORS_ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:8080")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=[o.strip() for o in _cors_origins.split(",")],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
